@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Observatory
 
-## Getting Started
+A live, interactive solar system mapping 47 companies across European and US venture — built to visualise deal flow the way an investor actually thinks about it.
 
-First, run the development server:
+**[→ observatory.lachlansear.com](https://observatory.lachlansear.com)**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What This Is
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The Observatory is a Three.js visualisation that renders my deal flow tracker as a solar system. Each planet represents a sector — Vertical AI, Horizontal AI, AI Infrastructure, Deep Tech & Defence — and the companies I'm tracking orbit as moons. Benchmark-tier companies glow gold. Click a planet to zoom into a vertical. Click a moon to see the company.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The data is pulled live from a separate tracker API, so the Observatory updates automatically whenever the underlying pipeline changes. One source of truth, two interfaces — a sortable table for analysis, a solar system for pattern recognition.
 
-## Learn More
+## Why I Built It
 
-To learn more about Next.js, take a look at the following resources:
+Most deal flow trackers are spreadsheets. They're useful for sorting and filtering but they flatten the landscape into rows. You lose the shape of the market — which verticals are crowded, where the gaps are, how companies cluster geographically.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The Observatory exists to see the landscape rather than just read it. It's the visual layer over a thesis I've been developing on vertical AI in regulated industries — the argument that the same AI problem recurs across healthcare, legal, dental, and veterinary, and that domain expertise and regulatory complexity create moats that horizontal wrappers can't replicate.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## The Thesis
 
-## Deploy on Vercel
+**Same Problem, Different Waiting Room** — vertical AI companies win in regulated industries not through better models, but through deeper domain integration, proprietary data flywheels, and the compliance burden that keeps generalist competitors out.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+→ [Read the full thesis on lachlansear.com](https://lachlansear.com/same-problem-different-waiting-room)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture
+
+- **Frontend**: Next.js, Three.js, deployed on Vercel
+- **Data**: Fetched at runtime from a public API endpoint on the tracker
+- **Design system**: Lora serif headings, IBM Plex Sans body, dark space aesthetic with gold (#D4A574) for Benchmark-tier companies
+
+## Related
+
+- [lachlansear.com](https://lachlansear.com) — Investment writing, case studies, thesis development
+- [tracker.lachlansear.com](https://tracker.lachlansear.com) — Full deal flow tracker (access on request)
+
+---
+
+Built by [Lachlan Sear](https://www.linkedin.com/in/lachlansear/).
