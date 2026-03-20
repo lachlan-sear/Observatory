@@ -266,8 +266,16 @@ export default function Observatory() {
     const isMobile = window.innerWidth < 768;
     S.isMobile = isMobile;
     setIsMobileState(isMobile);
-    S.orbitScale = isMobile ? 0.6 : 1.0;
-    const orbitScale = S.orbitScale;
+    // On mobile, remap orbits to [1.5, 4.0] so all planets stay visible
+    const allOrbits = Object.values(SECTORS).map((s) => s.orbitRadius);
+    const minOrbit = Math.min(...allOrbits);
+    const maxOrbit = Math.max(...allOrbits);
+    const getScaledOrbit = (r: number) => {
+      if (!isMobile) return r;
+      if (maxOrbit === minOrbit) return 2.75;
+      return 1.5 + ((r - minOrbit) / (maxOrbit - minOrbit)) * (4.0 - 1.5);
+    };
+    S.orbitScale = isMobile ? 0.6 : 1.0; // kept for reference but getScaledOrbit used instead
 
     const systemCamPos = isMobile ? new THREE.Vector3(0, 4, 10) : new THREE.Vector3(0, 5, 12);
     S.cameraPos = systemCamPos.clone();
@@ -431,7 +439,7 @@ export default function Observatory() {
     S.moons = [];
 
     sectorEntries.forEach(([sectorName, cfg], idx) => {
-      const scaledOrbit = cfg.orbitRadius * orbitScale;
+      const scaledOrbit = getScaledOrbit(cfg.orbitRadius);
 
       // Orbit ring
       const curve = new THREE.EllipseCurve(0, 0, scaledOrbit, scaledOrbit, 0, Math.PI * 2, false, 0);
@@ -612,7 +620,9 @@ export default function Observatory() {
 
       // Planets
       S.planets.forEach((p) => {
-        const scaledOrbit = p.cfg.orbitRadius * S.orbitScale;
+        const scaledOrbit = S.isMobile
+          ? 1.5 + ((p.cfg.orbitRadius - 3.2) / (9.0 - 3.2)) * (4.0 - 1.5)
+          : p.cfg.orbitRadius;
         const angle = p.angle + S.time * p.cfg.speed;
         const x = Math.cos(angle) * scaledOrbit;
         const z = Math.sin(angle) * scaledOrbit;
