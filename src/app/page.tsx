@@ -201,7 +201,7 @@ export default function Observatory() {
     scene: null,
     renderer: null,
     cameraTarget: new THREE.Vector3(0, 0, 0),
-    cameraPos: new THREE.Vector3(0, 7, 18),
+    cameraPos: new THREE.Vector3(0, 5, 12),
     isMobile: false,
     orbitScale: 1.0,
   });
@@ -267,7 +267,7 @@ export default function Observatory() {
     S.orbitScale = isMobile ? 0.7 : 1.0;
     const orbitScale = S.orbitScale;
 
-    const systemCamPos = isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 7, 18);
+    const systemCamPos = isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 5, 12);
     S.cameraPos = systemCamPos.clone();
 
     const scene = new THREE.Scene();
@@ -721,7 +721,7 @@ export default function Observatory() {
     S.targetSector = null;
 
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
-    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 7, 18);
+    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 5, 12);
 
     setMode("system");
     setZoomedSector(null);
