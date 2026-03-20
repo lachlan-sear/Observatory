@@ -35,6 +35,7 @@ interface SectorConfig {
   article: string;
   articleTitle: string;
   description: string;
+  shortName: string;
 }
 
 const SECTORS: Record<string, SectorConfig> = {
@@ -46,6 +47,7 @@ const SECTORS: Record<string, SectorConfig> = {
     article: "https://lachlansear.com/same-problem-different-waiting-room",
     articleTitle: "Same Problem, Different Waiting Room",
     description: "AI purpose-built for regulated industries \u2014 healthcare, legal, dental, veterinary, fintech. Domain expertise and compliance complexity create defensible moats that horizontal wrappers cannot replicate.",
+    shortName: "Vertical AI",
   },
   "Horizontal AI": {
     color: "#E8C87A",
@@ -55,6 +57,7 @@ const SECTORS: Record<string, SectorConfig> = {
     article: "https://lachlansear.com",
     articleTitle: "View on lachlansear.com",
     description: "General-purpose AI platforms, tools, and models serving broad markets. Category leaders emerge through distribution, developer loyalty, and ecosystem effects rather than domain depth.",
+    shortName: "Horizontal AI",
   },
   "AI Infrastructure": {
     color: "#D49A6A",
@@ -64,6 +67,7 @@ const SECTORS: Record<string, SectorConfig> = {
     article: "https://lachlansear.com",
     articleTitle: "View on lachlansear.com",
     description: "The picks-and-shovels layer \u2014 inference engines, workflow orchestration, data pipelines, and developer tooling powering the application layer above.",
+    shortName: "AI Infra",
   },
   "Deep Tech & Defence": {
     color: "#8B9FC4",
@@ -73,6 +77,7 @@ const SECTORS: Record<string, SectorConfig> = {
     article: "https://lachlansear.com",
     articleTitle: "View on lachlansear.com",
     description: "Frontier research commercialisation, autonomous systems, defence AI, and dual-use technologies. Sovereign capability and deep technical moats define this orbit.",
+    shortName: "Deep Tech",
   },
 };
 
@@ -103,14 +108,24 @@ interface PlanetData {
   mesh: THREE.Mesh;
   glow: THREE.Mesh;
   label: THREE.Sprite;
+  atmosphere: THREE.Mesh;
+  hitMesh: THREE.Mesh;
   sector: string;
   cfg: SectorConfig;
   angle: number;
+  meshScale: number;
+  glowScale: number;
+  labelScale: number;
+  labelOpacity: number;
+  glowOpacity: number;
+  emissiveVal: number;
 }
 
 interface MoonData {
   mesh: THREE.Mesh;
   glow: THREE.Mesh | null;
+  hitMesh: THREE.Mesh;
+  trail: THREE.Line;
   company: DistributedCompany;
   sector: string;
   moonAngle: number;
@@ -130,6 +145,8 @@ interface SceneState {
   cameraTarget: THREE.Vector3;
   cameraPos: THREE.Vector3;
   sunMesh?: THREE.Mesh;
+  isMobile: boolean;
+  orbitScale: number;
 }
 
 // ============================================================
@@ -150,6 +167,24 @@ function getStatusLabel(status: string) {
   return "tracking";
 }
 
+function getLastUpdated(companies: Company[]): string {
+  let latestMs = 0;
+  companies.forEach((c) => {
+    const dates = [c.dateUpdated, c.dateAdded].filter(Boolean) as string[];
+    dates.forEach((d) => {
+      const ms = new Date(d).getTime();
+      if (ms > latestMs) latestMs = ms;
+    });
+  });
+  if (latestMs === 0) return "";
+  const days = Math.floor((Date.now() - latestMs) / (1000 * 60 * 60 * 24));
+  if (days === 0) return "Updated today";
+  if (days === 1) return "Updated yesterday";
+  if (days < 14) return `Updated ${days} days ago`;
+  if (days < 30) return `Updated ${Math.floor(days / 7)} weeks ago`;
+  return `Updated ${Math.floor(days / 30)} months ago`;
+}
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -167,6 +202,8 @@ export default function Observatory() {
     renderer: null,
     cameraTarget: new THREE.Vector3(0, 0, 0),
     cameraPos: new THREE.Vector3(0, 7, 18),
+    isMobile: false,
+    orbitScale: 1.0,
   });
 
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -175,6 +212,7 @@ export default function Observatory() {
   const [mode, setMode] = useState("system");
   const [zoomedSector, setZoomedSector] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showSunCard, setShowSunCard] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const hoveredRef = useRef<string | null>(null);
 
@@ -187,7 +225,7 @@ export default function Observatory() {
         const data = await res.json();
         setCompanies(data);
       } catch (e) {
-        console.warn("Failed to fetch from tracker API, using fallback:", e);
+        console.warn("Failed to fetch from tracker API:", e);
         setFetchError(true);
       } finally {
         setLoading(false);
@@ -205,12 +243,14 @@ export default function Observatory() {
     };
   }, [companies]);
 
+  const lastUpdated = useMemo(() => getLastUpdated(companies), [companies]);
+
   const sectorCompanies = useMemo(() => {
     if (!zoomedSector) return [];
     return companies.filter((c) => c.sector === zoomedSector);
   }, [companies, zoomedSector]);
 
-  const sectorConfig = useMemo(() => zoomedSector ? SECTORS[zoomedSector] : null, [zoomedSector]);
+  const sectorConfig = useMemo(() => (zoomedSector ? SECTORS[zoomedSector] : null), [zoomedSector]);
 
   // --------------------------------------------------------
   // THREE.JS SCENE
@@ -222,13 +262,21 @@ export default function Observatory() {
     const height = container.clientHeight;
     const S = stateRef.current;
 
+    const isMobile = window.innerWidth < 768;
+    S.isMobile = isMobile;
+    S.orbitScale = isMobile ? 0.7 : 1.0;
+    const orbitScale = S.orbitScale;
+
+    const systemCamPos = isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 7, 18);
+    S.cameraPos = systemCamPos.clone();
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#060910");
     scene.fog = new THREE.FogExp2("#060910", 0.01);
     S.scene = scene;
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 200);
-    camera.position.set(0, 7, 18);
+    camera.position.copy(systemCamPos);
     (camera as any).userData.lookTarget = new THREE.Vector3(0, 0, 0);
     S.camera = camera;
 
@@ -240,10 +288,23 @@ export default function Observatory() {
     container.appendChild(renderer.domElement);
     S.renderer = renderer;
 
-    // Stars
+    // ---- Nebula depth spheres ----
+    [
+      { radius: 15, color: "#0a0f1a", opacity: 0.04 },
+      { radius: 25, color: "#0d0a18", opacity: 0.03 },
+      { radius: 40, color: "#0a0d1a", opacity: 0.02 },
+    ].forEach(({ radius, color, opacity }) => {
+      scene.add(new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 32, 32),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity, side: THREE.BackSide })
+      ));
+    });
+
+    // ---- Twinkling Stars (ShaderMaterial) ----
     const starCount = 2500;
     const starGeo = new THREE.BufferGeometry();
     const sPos = new Float32Array(starCount * 3);
+    const starPhases = new Float32Array(starCount);
     for (let i = 0; i < starCount; i++) {
       const r = 50 + Math.random() * 80;
       const t = Math.random() * Math.PI * 2;
@@ -251,11 +312,44 @@ export default function Observatory() {
       sPos[i * 3] = r * Math.sin(p) * Math.cos(t);
       sPos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t);
       sPos[i * 3 + 2] = r * Math.cos(p);
+      starPhases[i] = Math.random();
     }
     starGeo.setAttribute("position", new THREE.BufferAttribute(sPos, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.06, transparent: true, opacity: 0.5, sizeAttenuation: true })));
+    starGeo.setAttribute("phase", new THREE.BufferAttribute(starPhases, 1));
 
-    // Sun
+    const starTimeUniform = { value: 0 };
+    const starMat = new THREE.ShaderMaterial({
+      uniforms: {
+        time: starTimeUniform,
+        uPointSize: { value: 0.4 },
+      },
+      vertexShader: `
+        attribute float phase;
+        varying float vPhase;
+        uniform float uPointSize;
+        void main() {
+          vPhase = phase;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = uPointSize * (300.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        varying float vPhase;
+        void main() {
+          float d = length(gl_PointCoord - vec2(0.5));
+          if (d > 0.5) discard;
+          float alpha = 0.25 + 0.45 * sin(time * (0.5 + vPhase * 1.5) + vPhase * 6.2832);
+          gl_FragColor = vec4(1.0, 1.0, 1.0, alpha * smoothstep(0.5, 0.1, d));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+    });
+    scene.add(new THREE.Points(starGeo, starMat));
+
+    // ---- Sun ----
     const sun = new THREE.Mesh(
       new THREE.SphereGeometry(0.9, 64, 64),
       new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574") })
@@ -263,24 +357,59 @@ export default function Observatory() {
     scene.add(sun);
     S.sunMesh = sun;
 
-    [1.3, 1.8, 2.5].forEach((s, i) => {
-      scene.add(new THREE.Mesh(
-        new THREE.SphereGeometry(s, 32, 32),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: [0.07, 0.035, 0.015][i], side: THREE.BackSide })
-      ));
+    // Sun glow layers (pulsing at different rates)
+    const sunGlowData = [
+      { radius: 1.3, baseOpacity: 0.07, freq: 3.0, amplitude: 0.02 },
+      { radius: 1.8, baseOpacity: 0.04, freq: 2.2, amplitude: 0.015 },
+      { radius: 2.5, baseOpacity: 0.02, freq: 1.6, amplitude: 0.01 },
+      { radius: 3.5, baseOpacity: 0.008, freq: 1.2, amplitude: 0.004 },
+    ];
+    const sunGlowMeshes: { mesh: THREE.Mesh; baseOpacity: number; freq: number; amplitude: number }[] = [];
+    sunGlowData.forEach(({ radius, baseOpacity, freq, amplitude }) => {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 32, 32),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: baseOpacity, side: THREE.BackSide })
+      );
+      scene.add(mesh);
+      sunGlowMeshes.push({ mesh, baseOpacity, freq, amplitude });
     });
+
+    // Sun rotating disc (light ray effect)
+    const sunDisc = new THREE.Mesh(
+      new THREE.RingGeometry(1.0, 3.8, 64),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: 0.012, side: THREE.DoubleSide })
+    );
+    scene.add(sunDisc);
+
+    // Sun label sprite
+    const sunLabelCanvas = document.createElement("canvas");
+    sunLabelCanvas.width = 512;
+    sunLabelCanvas.height = 64;
+    const sunCtx = sunLabelCanvas.getContext("2d")!;
+    sunCtx.font = "italic 400 22px 'Lora', serif";
+    sunCtx.fillStyle = "#D4A574";
+    sunCtx.textAlign = "center";
+    sunCtx.fillText("THE OBSERVATORY", 256, 40);
+    const sunLabelSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(sunLabelCanvas), transparent: true, opacity: 0.4 })
+    );
+    sunLabelSprite.scale.set(2.5, 0.3, 1);
+    sunLabelSprite.position.set(0, -1.4, 0);
+    scene.add(sunLabelSprite);
 
     scene.add(new THREE.PointLight("#D4A574", 2, 50, 1));
     scene.add(new THREE.AmbientLight("#1a2030", 1.5));
 
-    // Build planets + orbits + moons
+    // ---- Build planets + orbits + moons ----
     const sectorEntries = Object.entries(SECTORS);
     S.planets = [];
     S.moons = [];
 
     sectorEntries.forEach(([sectorName, cfg], idx) => {
+      const scaledOrbit = cfg.orbitRadius * orbitScale;
+
       // Orbit ring
-      const curve = new THREE.EllipseCurve(0, 0, cfg.orbitRadius, cfg.orbitRadius, 0, Math.PI * 2, false, 0);
+      const curve = new THREE.EllipseCurve(0, 0, scaledOrbit, scaledOrbit, 0, Math.PI * 2, false, 0);
       const pts = curve.getPoints(128);
       const orbitGeo = new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.y)));
       scene.add(new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.07 })));
@@ -288,31 +417,54 @@ export default function Observatory() {
       // Planet
       const planet = new THREE.Mesh(
         new THREE.SphereGeometry(cfg.planetSize, 32, 32),
-        new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color), emissive: new THREE.Color(cfg.color), emissiveIntensity: 0.3, roughness: 0.7, metalness: 0.2 })
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color), emissive: new THREE.Color(cfg.color), emissiveIntensity: 0.4, roughness: 0.7, metalness: 0.2 })
       );
       planet.userData = { sector: sectorName };
       scene.add(planet);
 
+      // Planet glow
       const glow = new THREE.Mesh(
         new THREE.SphereGeometry(cfg.planetSize * 2.5, 16, 16),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.06, side: THREE.BackSide })
       );
       scene.add(glow);
 
-      // Label
+      // Planet atmosphere ring
+      const atmo = new THREE.Mesh(
+        new THREE.TorusGeometry(cfg.planetSize * 1.4, 0.012, 8, 64),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.08 })
+      );
+      atmo.rotation.x = Math.PI / 2;
+      scene.add(atmo);
+
+      // Hit mesh (larger invisible sphere for touch targets)
+      const hitMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(cfg.planetSize * 2.5, 16, 16),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hitMesh.userData = { sector: sectorName };
+      scene.add(hitMesh);
+
+      // Label (short names on mobile)
+      const labelName = isMobile ? cfg.shortName : sectorName;
       const canvas = document.createElement("canvas");
-      canvas.width = 512; canvas.height = 64;
+      canvas.width = 512;
+      canvas.height = 64;
       const ctx = canvas.getContext("2d")!;
       ctx.font = "500 26px 'IBM Plex Sans', Arial, sans-serif";
       ctx.fillStyle = cfg.color;
       ctx.textAlign = "center";
-      ctx.fillText(sectorName.toUpperCase(), 256, 40);
+      ctx.fillText(labelName.toUpperCase(), 256, 40);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, opacity: 0.6 }));
       sprite.scale.set(2.8, 0.35, 1);
       scene.add(sprite);
 
       const startAngle = (idx / sectorEntries.length) * Math.PI * 2;
-      S.planets.push({ mesh: planet, glow, label: sprite, sector: sectorName, cfg, angle: startAngle });
+      S.planets.push({
+        mesh: planet, glow, label: sprite, atmosphere: atmo, hitMesh,
+        sector: sectorName, cfg, angle: startAngle,
+        meshScale: 1, glowScale: 1, labelScale: 1, labelOpacity: 0.55, glowOpacity: 0.06, emissiveVal: 0.4,
+      });
 
       // Moons
       const sectorCos = companies.filter((c) => c.sector === sectorName);
@@ -335,11 +487,28 @@ export default function Observatory() {
           );
           scene.add(moonGlow);
         }
-        S.moons.push({ mesh: moon, glow: moonGlow, company: co, sector: sectorName, moonAngle: co.moonAngle, moonOrbit: co.moonOrbit });
+
+        // Moon hit mesh (larger for touch)
+        const moonHit = new THREE.Mesh(
+          new THREE.SphereGeometry(sz * 4, 8, 8),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        moonHit.userData = { company: co };
+        scene.add(moonHit);
+
+        // Moon trail (orbital ring, hidden by default)
+        const trailCurve = new THREE.EllipseCurve(0, 0, co.moonOrbit, co.moonOrbit, 0, Math.PI * 2, false, 0);
+        const trailPts = trailCurve.getPoints(64);
+        const trailGeo = new THREE.BufferGeometry().setFromPoints(trailPts.map((tp) => new THREE.Vector3(tp.x, 0, tp.y)));
+        const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.06 }));
+        trail.visible = false;
+        scene.add(trail);
+
+        S.moons.push({ mesh: moon, glow: moonGlow, hitMesh: moonHit, trail, company: co, sector: sectorName, moonAngle: co.moonAngle, moonOrbit: co.moonOrbit });
       });
     });
 
-    // Raycaster
+    // ---- Raycaster ----
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -351,14 +520,19 @@ export default function Observatory() {
       raycaster.setFromCamera(mouse, camera);
 
       if (S.mode === "system") {
-        const hits = raycaster.intersectObjects(S.planets.map((p) => p.mesh));
-        if (hits.length > 0) {
-          const sec = hits[0].object.userData.sector;
+        const planetHits = raycaster.intersectObjects(S.planets.map((p) => p.hitMesh));
+        if (planetHits.length > 0) {
+          const sec = planetHits[0].object.userData.sector;
           zoomToSector(sec);
+          return;
+        }
+        const sunHits = raycaster.intersectObjects([sun]);
+        if (sunHits.length > 0) {
+          setShowSunCard(true);
         }
       } else {
         const sectorMoons = S.moons.filter((m) => m.sector === S.targetSector);
-        const hits = raycaster.intersectObjects(sectorMoons.map((m) => m.mesh));
+        const hits = raycaster.intersectObjects(sectorMoons.map((m) => m.hitMesh));
         if (hits.length > 0) {
           const co = hits[0].object.userData.company;
           setSelectedCompany((prev) => (prev?.id === co.id ? null : co));
@@ -375,12 +549,18 @@ export default function Observatory() {
       raycaster.setFromCamera(mouse, camera);
 
       if (S.mode === "system") {
-        const hits = raycaster.intersectObjects(S.planets.map((p) => p.mesh));
-        hoveredRef.current = hits.length > 0 ? hits[0].object.userData.sector : null;
-        renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "default";
+        const planetHits = raycaster.intersectObjects(S.planets.map((p) => p.hitMesh));
+        if (planetHits.length > 0) {
+          hoveredRef.current = planetHits[0].object.userData.sector;
+          renderer.domElement.style.cursor = "pointer";
+        } else {
+          hoveredRef.current = null;
+          const sunHits = raycaster.intersectObjects([sun]);
+          renderer.domElement.style.cursor = sunHits.length > 0 ? "pointer" : "default";
+        }
       } else {
         const sectorMoons = S.moons.filter((m) => m.sector === S.targetSector);
-        const hits = raycaster.intersectObjects(sectorMoons.map((m) => m.mesh));
+        const hits = raycaster.intersectObjects(sectorMoons.map((m) => m.hitMesh));
         renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "default";
       }
     };
@@ -388,50 +568,95 @@ export default function Observatory() {
     renderer.domElement.addEventListener("click", onClick);
     renderer.domElement.addEventListener("mousemove", onMouseMove);
 
-    // Animate
+    // ---- Animate ----
     const animate = () => {
       requestAnimationFrame(animate);
       S.time += 0.006;
 
-      sun.rotation.y += 0.001;
+      // Stars twinkle
+      starTimeUniform.value = S.time;
 
+      // Sun
+      sun.rotation.y += 0.001;
+      sunDisc.rotation.z += 0.0015;
+      sunGlowMeshes.forEach(({ mesh, baseOpacity, freq, amplitude }) => {
+        (mesh.material as THREE.MeshBasicMaterial).opacity = baseOpacity + amplitude * Math.sin(S.time * freq);
+      });
+      (sunLabelSprite.material as THREE.SpriteMaterial).opacity = 0.4 + 0.1 * Math.sin(S.time * 4.0);
+
+      // Planets
       S.planets.forEach((p) => {
+        const scaledOrbit = p.cfg.orbitRadius * S.orbitScale;
         const angle = p.angle + S.time * p.cfg.speed;
-        const x = Math.cos(angle) * p.cfg.orbitRadius;
-        const z = Math.sin(angle) * p.cfg.orbitRadius;
+        const x = Math.cos(angle) * scaledOrbit;
+        const z = Math.sin(angle) * scaledOrbit;
         p.mesh.position.set(x, 0, z);
         p.glow.position.set(x, 0, z);
+        p.atmosphere.position.set(x, 0, z);
+        p.hitMesh.position.set(x, 0, z);
         p.label.position.set(x, p.cfg.planetSize + 0.5, z);
 
+        // Planet self-rotation
+        p.mesh.rotation.y += 0.003;
+
+        // Smooth hover lerp
         const isHovered = hoveredRef.current === p.sector;
-        (p.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = isHovered ? 0.6 + Math.sin(S.time * 3) * 0.2 : 0.3;
-        (p.glow.material as THREE.MeshBasicMaterial).opacity = isHovered ? 0.14 : 0.06;
-        (p.label.material as THREE.SpriteMaterial).opacity = isHovered ? 0.9 : 0.55;
+        const tMeshScale = isHovered ? 1.15 : 1.0;
+        const tGlowScale = isHovered ? 1.3 : 1.0;
+        const tLabelScale = isHovered ? 1.1 : 1.0;
+        const tLabelOpacity = isHovered ? 0.9 : 0.55;
+        const tGlowOpacity = isHovered ? 0.14 : 0.06;
+        const tEmissive = isHovered ? 0.7 : 0.4;
+
+        p.meshScale += (tMeshScale - p.meshScale) * 0.08;
+        p.glowScale += (tGlowScale - p.glowScale) * 0.08;
+        p.labelScale += (tLabelScale - p.labelScale) * 0.08;
+        p.labelOpacity += (tLabelOpacity - p.labelOpacity) * 0.08;
+        p.glowOpacity += (tGlowOpacity - p.glowOpacity) * 0.08;
+        p.emissiveVal += (tEmissive - p.emissiveVal) * 0.08;
+
+        p.mesh.scale.setScalar(p.meshScale);
+        p.glow.scale.setScalar(p.glowScale);
+        p.label.scale.set(2.8 * p.labelScale, 0.35 * p.labelScale, 1);
+        (p.label.material as THREE.SpriteMaterial).opacity = p.labelOpacity;
+        (p.glow.material as THREE.MeshBasicMaterial).opacity = p.glowOpacity;
+        (p.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = p.emissiveVal;
       });
 
+      // Moons
       S.moons.forEach((m) => {
         const parent = S.planets.find((p) => p.sector === m.sector);
         if (!parent) return;
         const pp = parent.mesh.position;
         const ma = m.moonAngle + S.time * 0.35;
-        m.mesh.position.set(pp.x + Math.cos(ma) * m.moonOrbit, 0, pp.z + Math.sin(ma) * m.moonOrbit);
-        if (m.glow) m.glow.position.copy(m.mesh.position);
+        const mx = pp.x + Math.cos(ma) * m.moonOrbit;
+        const mz = pp.z + Math.sin(ma) * m.moonOrbit;
+        m.mesh.position.set(mx, 0, mz);
+        m.hitMesh.position.set(mx, 0, mz);
+        if (m.glow) m.glow.position.set(mx, 0, mz);
+
+        // Trail follows parent planet
+        m.trail.position.set(pp.x, 0, pp.z);
 
         if (S.mode === "system") {
           (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.3;
           m.mesh.scale.setScalar(0.65);
           if (m.glow) (m.glow.material as THREE.MeshBasicMaterial).opacity = 0.04;
+          m.trail.visible = false;
         } else if (m.sector === S.targetSector) {
           (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.95;
           m.mesh.scale.setScalar(1.5);
           if (m.glow) (m.glow.material as THREE.MeshBasicMaterial).opacity = 0.15 + Math.sin(S.time * 2) * 0.08;
+          m.trail.visible = true;
         } else {
           (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.04;
           m.mesh.scale.setScalar(0.3);
           if (m.glow) (m.glow.material as THREE.MeshBasicMaterial).opacity = 0;
+          m.trail.visible = false;
         }
       });
 
+      // Camera
       camera.position.lerp(S.cameraPos, 0.03);
       const lt = (camera as any).userData.lookTarget || new THREE.Vector3();
       lt.lerp(S.cameraTarget, 0.03);
@@ -476,13 +701,15 @@ export default function Observatory() {
     if (!planet) return;
     const pp = planet.mesh.position.clone();
     const dir = pp.clone().normalize();
+    const zoomDist = S.isMobile ? 3.8 : 2.8;
 
     S.cameraTarget = pp.clone();
-    S.cameraPos = new THREE.Vector3(pp.x + dir.x * 2.8, 2.0, pp.z + dir.z * 2.8);
+    S.cameraPos = new THREE.Vector3(pp.x + dir.x * zoomDist, S.isMobile ? 2.8 : 2.0, pp.z + dir.z * zoomDist);
 
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
+    setShowSunCard(false);
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
 
@@ -494,7 +721,7 @@ export default function Observatory() {
     S.targetSector = null;
 
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
-    S.cameraPos = new THREE.Vector3(0, 7, 18);
+    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 7, 18);
 
     setMode("system");
     setZoomedSector(null);
@@ -510,7 +737,7 @@ export default function Observatory() {
       <div style={{ width: "100%", height: "100vh", background: "#060910", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Sans', sans-serif" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ width: 32, height: 32, border: "2px solid rgba(212,165,116,0.2)", borderTopColor: "#D4A574", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" }} />
-          <div style={{ color: "rgba(231,243,233,0.4)", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>Loading tracker data</div>
+          <div style={{ fontFamily: "'Lora', serif", fontStyle: "italic", color: "#D4A574", opacity: 0.6, fontSize: 14 }}>Mapping the landscape...</div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
@@ -571,12 +798,14 @@ export default function Observatory() {
         .obs-panel::-webkit-scrollbar { width:4px; }
         .obs-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:4px; }
 
-        @media (max-width:700px) {
+        @media (max-width:768px) {
           .obs-hdr { padding:14px 16px 0 !important; }
           .obs-hdr h1 { font-size:20px !important; }
-          .obs-sp { width:100% !important; right:0 !important; left:0 !important; top:auto !important; bottom:0 !important; max-height:50vh !important; border-radius:14px 14px 0 0 !important; }
-          .obs-cc { left:12px !important; right:12px !important; bottom:0 !important; max-width:100% !important; border-radius:14px 14px 0 0 !important; }
+          .obs-sp { width:100% !important; right:0 !important; left:0 !important; top:auto !important; bottom:0 !important; max-height:45vh !important; border-radius:14px 14px 0 0 !important; }
+          .obs-cc { left:0 !important; right:0 !important; bottom:0 !important; max-width:100% !important; border-radius:14px 14px 0 0 !important; padding:16px !important; }
           .obs-sts { gap:20px !important; }
+          .obs-stat-num { font-size:18px !important; }
+          .obs-sun-card { width:calc(100% - 32px) !important; max-width:100% !important; }
         }
       `}</style>
 
@@ -584,61 +813,49 @@ export default function Observatory() {
 
       {/* ======== SYSTEM VIEW ======== */}
       {isReady && mode === "system" && (
-        <>
-          <div className="obs-hdr obs-fi" style={{
-            position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
-            padding: "30px 36px 0",
-            background: "linear-gradient(to bottom, rgba(6,9,16,0.85) 0%, transparent 100%)",
-          }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-              <h1 style={{ fontFamily: "'Lora', serif", fontSize: 24, fontWeight: 600, color: "#E7F3E9", margin: 0, letterSpacing: "-0.01em" }}>
-                The Observatory
-              </h1>
-              <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                Lachlan Sear
-              </span>
-            </div>
-            <p style={{ fontSize: 13, color: "rgba(231,243,233,0.35)", marginTop: 8, fontWeight: 300, lineHeight: 1.5, maxWidth: 480 }}>
-              Mapping vertical AI across regulated industries. Click a planet to explore a vertical.
-            </p>
-            <div className="obs-sts" style={{ display: "flex", gap: 32, marginTop: 18 }}>
-              {[
-                { n: stats.total, l: "Companies" },
-                { n: stats.sectors, l: "Sectors" },
-                { n: stats.benchmark, l: "Benchmark" },
-                { n: stats.countries, l: "Countries" },
-              ].map(({ n, l }) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Lora', serif", fontSize: 21, fontWeight: 600, color: "#E7F3E9" }}>{n}</div>
-                  <div style={{ fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(231,243,233,0.25)", marginTop: 3 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom line */}
-          <div className="obs-fi obs-fi-3" style={{ position: "absolute", bottom: 22, left: 0, right: 0, textAlign: "center", zIndex: 10 }}>
-            <span style={{ fontSize: 11, color: "rgba(231,243,233,0.18)", fontWeight: 300 }}>
-              Full analysis available on request &mdash;{" "}
-              <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/" target="_blank" rel="noopener noreferrer"
-                style={{ color: "rgba(212,165,116,0.4)", textDecoration: "none", borderBottom: "1px solid rgba(212,165,116,0.15)" }}>
-                LinkedIn
-              </a>
-              {" "} &middot; {" "}
-              <a href="https://lachlansear.com" target="_blank" rel="noopener noreferrer"
-                style={{ color: "rgba(212,165,116,0.4)", textDecoration: "none", borderBottom: "1px solid rgba(212,165,116,0.15)" }}>
-                lachlansear.com
-              </a>
+        <div className="obs-hdr obs-fi" style={{
+          position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+          padding: "30px 36px 0",
+          background: "linear-gradient(to bottom, rgba(6,9,16,0.85) 0%, transparent 100%)",
+        }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+            <h1 style={{ fontFamily: "'Lora', serif", fontSize: 24, fontWeight: 600, color: "#E7F3E9", margin: 0, letterSpacing: "-0.01em" }}>
+              The Observatory
+            </h1>
+            <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Lachlan Sear
             </span>
           </div>
-        </>
+          <p style={{ fontSize: 13, color: "rgba(231,243,233,0.35)", marginTop: 8, fontWeight: 300, lineHeight: 1.5, maxWidth: 480 }}>
+            Mapping vertical AI across regulated industries. Click a planet to explore a vertical.
+          </p>
+          <div className="obs-sts" style={{ display: "flex", gap: 32, marginTop: 18 }}>
+            {[
+              { n: stats.total, l: "Companies" },
+              { n: stats.sectors, l: "Sectors" },
+              { n: stats.benchmark, l: "Benchmark" },
+              { n: stats.countries, l: "Countries" },
+            ].map(({ n, l }) => (
+              <div key={l} style={{ textAlign: "center" }}>
+                <div className="obs-stat-num" style={{ fontFamily: "'Lora', serif", fontSize: 21, fontWeight: 600, color: "#E7F3E9" }}>{n}</div>
+                <div style={{ fontSize: 8.5, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(231,243,233,0.25)", marginTop: 3 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {lastUpdated && (
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6ECE8A", display: "inline-block", flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", letterSpacing: "0.06em" }}>{lastUpdated}</span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ======== ZOOMED VIEW ======== */}
       {isReady && mode === "zoomed" && sectorConfig && (
         <>
           {/* Header */}
-          <div className="obs-su" style={{ position: "absolute", top: 22, left: 24, zIndex: 10, display: "flex", alignItems: "center", gap: 14 }}>
+          <div className="obs-su" style={{ position: "absolute", top: 22, left: 24, zIndex: 10, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <button className="obs-bb" onClick={zoomOut}>&larr; System</button>
             <div>
               <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
@@ -648,6 +865,12 @@ export default function Observatory() {
                 {sectorCompanies.length} companies
               </span>
             </div>
+            {lastUpdated && (
+              <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6ECE8A", display: "inline-block", flexShrink: 0 }} />
+                {lastUpdated}
+              </span>
+            )}
           </div>
 
           {/* Sector description */}
@@ -734,18 +957,40 @@ export default function Observatory() {
               </div>
             </div>
           )}
-
-          {/* Bottom line */}
-          <div style={{ position: "absolute", bottom: selectedCompany ? 150 : 22, left: 0, right: 0, textAlign: "center", zIndex: 5, transition: "bottom 0.3s" }}>
-            <span style={{ fontSize: 11, color: "rgba(231,243,233,0.15)", fontWeight: 300 }}>
-              Full analysis available on request &mdash;{" "}
-              <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/" target="_blank" rel="noopener noreferrer"
-                style={{ color: "rgba(212,165,116,0.35)", textDecoration: "none", borderBottom: "1px solid rgba(212,165,116,0.15)" }}>
-                LinkedIn
-              </a>
-            </span>
-          </div>
         </>
+      )}
+
+      {/* ======== SUN CARD ======== */}
+      {showSunCard && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 25, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
+          onClick={() => setShowSunCard(false)}
+        >
+          <div
+            className="obs-g obs-ci obs-sun-card"
+            style={{ position: "relative", borderRadius: 14, padding: 28, maxWidth: 420, width: "100%" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="obs-cl" onClick={() => setShowSunCard(false)}>&times;</button>
+            <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: "#E7F3E9", margin: "0 0 6px" }}>
+              The Observatory
+            </h2>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(231,243,233,0.3)", marginBottom: 16 }}>
+              Lachlan Sear
+            </div>
+            <p style={{ fontSize: 13, color: "rgba(231,243,233,0.55)", lineHeight: 1.65, fontWeight: 300, margin: "0 0 20px" }}>
+              A curated, live view of the companies shaping AI across regulated and frontier industries. I track vertical AI in healthcare, legal, dental, and veterinary &mdash; where domain expertise, regulatory complexity, and data flywheels create moats that horizontal wrappers cannot replicate. Each planet is a sector. Each moon is a company. The system updates automatically as my pipeline evolves.
+            </p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <a href="https://lachlansear.com" target="_blank" rel="noopener noreferrer" className="obs-link">
+                lachlansear.com &rarr;
+              </a>
+              <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/" target="_blank" rel="noopener noreferrer" className="obs-link">
+                LinkedIn &rarr;
+              </a>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
