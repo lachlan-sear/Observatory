@@ -277,9 +277,9 @@ export default function Observatory() {
     };
     S.orbitScale = isMobile ? 0.6 : 1.0; // kept for reference but getScaledOrbit used instead
 
-    const systemCamPos = isMobile ? new THREE.Vector3(0, 2, 9) : new THREE.Vector3(0, 5, 12);
+    const systemCamPos = isMobile ? new THREE.Vector3(0, 0, 10) : new THREE.Vector3(0, 5, 12);
     S.cameraPos = systemCamPos.clone();
-    S.cameraTarget = isMobile ? new THREE.Vector3(0, -0.5, 0) : new THREE.Vector3(0, 0, 0);
+    S.cameraTarget = new THREE.Vector3(0, 0, 0);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#080c14");
@@ -288,7 +288,7 @@ export default function Observatory() {
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 200);
     camera.position.copy(systemCamPos);
-    (camera as any).userData.lookTarget = isMobile ? new THREE.Vector3(0, -0.5, 0) : new THREE.Vector3(0, 0, 0);
+    (camera as any).userData.lookTarget = new THREE.Vector3(0, 0, 0);
     S.camera = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -380,12 +380,17 @@ export default function Observatory() {
     });
     scene.add(new THREE.Points(starGeo, starMat));
 
+    // ---- System Group (tilted on mobile) ----
+    const systemGroup = new THREE.Group();
+    if (isMobile) systemGroup.rotation.x = 1.1;
+    scene.add(systemGroup);
+
     // ---- Sun ----
     const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(isMobile ? 0.6 : 0.9, 64, 64),
+      new THREE.SphereGeometry(isMobile ? 0.5 : 0.9, 64, 64),
       new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574") })
     );
-    scene.add(sun);
+    systemGroup.add(sun);
     S.sunMesh = sun;
 
     // Sun glow layers (pulsing at different rates)
@@ -401,7 +406,7 @@ export default function Observatory() {
         new THREE.SphereGeometry(radius, 32, 32),
         new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: baseOpacity, side: THREE.BackSide })
       );
-      scene.add(mesh);
+      systemGroup.add(mesh);
       sunGlowMeshes.push({ mesh, baseOpacity, freq, amplitude });
     });
 
@@ -410,7 +415,7 @@ export default function Observatory() {
       new THREE.RingGeometry(1.0, 3.8, 64),
       new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: 0.012, side: THREE.DoubleSide })
     );
-    scene.add(sunDisc);
+    systemGroup.add(sunDisc);
 
     // Sun label sprite
     const sunLabelCanvas = document.createElement("canvas");
@@ -426,13 +431,13 @@ export default function Observatory() {
     );
     sunLabelSprite.scale.set(2.5, 0.3, 1);
     sunLabelSprite.position.set(0, -1.4, 0);
-    scene.add(sunLabelSprite);
+    systemGroup.add(sunLabelSprite);
 
     const dirLight = new THREE.DirectionalLight("#ffffff", 0.5);
     dirLight.position.set(5, 3, 5);
-    scene.add(dirLight);
-    scene.add(new THREE.PointLight("#D4A574", 2, 50, 1));
-    scene.add(new THREE.AmbientLight("#1a2030", 0.8));
+    systemGroup.add(dirLight);
+    systemGroup.add(new THREE.PointLight("#D4A574", 2, 50, 1));
+    scene.add(new THREE.AmbientLight("#1a2030", 0.8)); // ambient stays in scene
 
     // ---- Build planets + orbits + moons ----
     const sectorEntries = Object.entries(SECTORS);
@@ -446,23 +451,23 @@ export default function Observatory() {
       const curve = new THREE.EllipseCurve(0, 0, scaledOrbit, scaledOrbit, 0, Math.PI * 2, false, 0);
       const pts = curve.getPoints(128);
       const orbitGeo = new THREE.BufferGeometry().setFromPoints(pts.map((p) => new THREE.Vector3(p.x, 0, p.y)));
-      scene.add(new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.07 })));
+      systemGroup.add(new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.07 })));
 
       // Planet
-      const pSize = isMobile ? cfg.planetSize * 0.8 : cfg.planetSize;
+      const pSize = isMobile ? cfg.planetSize * 0.7 : cfg.planetSize;
       const planet = new THREE.Mesh(
         new THREE.SphereGeometry(pSize, 32, 32),
         new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color), emissive: new THREE.Color(cfg.color), emissiveIntensity: 0.25, roughness: 0.55, metalness: 0.15 })
       );
       planet.userData = { sector: sectorName };
-      scene.add(planet);
+      systemGroup.add(planet);
 
       // Planet glow
       const glow = new THREE.Mesh(
         new THREE.SphereGeometry(pSize * 2.5, 16, 16),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.06, side: THREE.BackSide })
       );
-      scene.add(glow);
+      systemGroup.add(glow);
 
       // Planet atmosphere ring
       const atmo = new THREE.Mesh(
@@ -470,7 +475,7 @@ export default function Observatory() {
         new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.08 })
       );
       atmo.rotation.x = Math.PI / 2;
-      scene.add(atmo);
+      systemGroup.add(atmo);
 
       // Hit mesh (larger invisible sphere for touch targets)
       const hitMesh = new THREE.Mesh(
@@ -478,7 +483,7 @@ export default function Observatory() {
         new THREE.MeshBasicMaterial({ visible: false })
       );
       hitMesh.userData = { sector: sectorName };
-      scene.add(hitMesh);
+      systemGroup.add(hitMesh);
 
       // Label (short names on mobile)
       const labelName = isMobile ? cfg.shortName : sectorName;
@@ -492,7 +497,7 @@ export default function Observatory() {
       ctx.fillText(labelName.toUpperCase(), 256, 40);
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, opacity: 0.6 }));
       sprite.scale.set(2.8, 0.35, 1);
-      scene.add(sprite);
+      systemGroup.add(sprite);
 
       const startAngle = (idx / sectorEntries.length) * Math.PI * 2;
       S.planets.push({
@@ -512,7 +517,7 @@ export default function Observatory() {
           new THREE.MeshBasicMaterial({ color: new THREE.Color(isBench ? "#D4A574" : cfg.color), transparent: true, opacity: 0.9 })
         );
         moon.userData = { company: co };
-        scene.add(moon);
+        systemGroup.add(moon);
 
         let moonGlow: THREE.Mesh | null = null;
         if (isBench) {
@@ -520,7 +525,7 @@ export default function Observatory() {
             new THREE.SphereGeometry(sz * 3, 16, 16),
             new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: 0.12 })
           );
-          scene.add(moonGlow);
+          systemGroup.add(moonGlow);
         }
 
         // Moon hit mesh (larger for touch)
@@ -529,7 +534,7 @@ export default function Observatory() {
           new THREE.MeshBasicMaterial({ visible: false })
         );
         moonHit.userData = { company: co };
-        scene.add(moonHit);
+        systemGroup.add(moonHit);
 
         // Moon trail (orbital ring, hidden by default)
         const trailCurve = new THREE.EllipseCurve(0, 0, co.moonOrbit, co.moonOrbit, 0, Math.PI * 2, false, 0);
@@ -537,7 +542,7 @@ export default function Observatory() {
         const trailGeo = new THREE.BufferGeometry().setFromPoints(trailPts.map((tp) => new THREE.Vector3(tp.x, 0, tp.y)));
         const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.06 }));
         trail.visible = false;
-        scene.add(trail);
+        systemGroup.add(trail);
 
         S.moons.push({ mesh: moon, glow: moonGlow, hitMesh: moonHit, trail, company: co, sector: sectorName, moonAngle: co.moonAngle, moonOrbit: co.moonOrbit });
       });
@@ -762,8 +767,8 @@ export default function Observatory() {
     S.mode = "system";
     S.targetSector = null;
 
-    S.cameraTarget = S.isMobile ? new THREE.Vector3(0, -0.5, 0) : new THREE.Vector3(0, 0, 0);
-    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 2, 9) : new THREE.Vector3(0, 5, 12);
+    S.cameraTarget = new THREE.Vector3(0, 0, 0);
+    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 0, 10) : new THREE.Vector3(0, 5, 12);
 
     setMode("system");
     setZoomedSector(null);
