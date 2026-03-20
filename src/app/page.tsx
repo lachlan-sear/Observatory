@@ -266,10 +266,10 @@ export default function Observatory() {
     const isMobile = window.innerWidth < 768;
     S.isMobile = isMobile;
     setIsMobileState(isMobile);
-    S.orbitScale = isMobile ? 0.7 : 1.0;
+    S.orbitScale = isMobile ? 0.5 : 1.0;
     const orbitScale = S.orbitScale;
 
-    const systemCamPos = isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 5, 12);
+    const systemCamPos = isMobile ? new THREE.Vector3(0, 3, 8) : new THREE.Vector3(0, 5, 12);
     S.cameraPos = systemCamPos.clone();
 
     const scene = new THREE.Scene();
@@ -373,7 +373,7 @@ export default function Observatory() {
 
     // ---- Sun ----
     const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(0.9, 64, 64),
+      new THREE.SphereGeometry(isMobile ? 0.6 : 0.9, 64, 64),
       new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574") })
     );
     scene.add(sun);
@@ -440,8 +440,9 @@ export default function Observatory() {
       scene.add(new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.07 })));
 
       // Planet
+      const pSize = isMobile ? cfg.planetSize * 0.8 : cfg.planetSize;
       const planet = new THREE.Mesh(
-        new THREE.SphereGeometry(cfg.planetSize, 32, 32),
+        new THREE.SphereGeometry(pSize, 32, 32),
         new THREE.MeshStandardMaterial({ color: new THREE.Color(cfg.color), emissive: new THREE.Color(cfg.color), emissiveIntensity: 0.25, roughness: 0.55, metalness: 0.15 })
       );
       planet.userData = { sector: sectorName };
@@ -449,14 +450,14 @@ export default function Observatory() {
 
       // Planet glow
       const glow = new THREE.Mesh(
-        new THREE.SphereGeometry(cfg.planetSize * 2.5, 16, 16),
+        new THREE.SphereGeometry(pSize * 2.5, 16, 16),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.06, side: THREE.BackSide })
       );
       scene.add(glow);
 
       // Planet atmosphere ring
       const atmo = new THREE.Mesh(
-        new THREE.TorusGeometry(cfg.planetSize * 1.4, 0.012, 8, 64),
+        new THREE.TorusGeometry(pSize * 1.4, 0.012, 8, 64),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color), transparent: true, opacity: 0.08 })
       );
       atmo.rotation.x = Math.PI / 2;
@@ -464,7 +465,7 @@ export default function Observatory() {
 
       // Hit mesh (larger invisible sphere for touch targets)
       const hitMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(cfg.planetSize * 2.5, 16, 16),
+        new THREE.SphereGeometry(pSize * 2.5, 16, 16),
         new THREE.MeshBasicMaterial({ visible: false })
       );
       hitMesh.userData = { sector: sectorName };
@@ -493,7 +494,7 @@ export default function Observatory() {
 
       // Moons
       const sectorCos = companies.filter((c) => c.sector === sectorName);
-      const distributed = distributeCompaniesOnOrbit(sectorCos, cfg.planetSize);
+      const distributed = distributeCompaniesOnOrbit(sectorCos, pSize);
       distributed.forEach((co) => {
         const isBench = co.status === "Benchmark";
         const sz = isBench ? 0.065 : 0.04;
@@ -751,7 +752,7 @@ export default function Observatory() {
     S.targetSector = null;
 
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
-    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 10, 26) : new THREE.Vector3(0, 5, 12);
+    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 3, 8) : new THREE.Vector3(0, 5, 12);
 
     setMode("system");
     setZoomedSector(null);
@@ -829,13 +830,15 @@ export default function Observatory() {
         .obs-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:4px; }
 
         @media (max-width:768px) {
-          .obs-hdr { padding:14px 16px 0 !important; }
-          .obs-hdr h1 { font-size:20px !important; }
+          .obs-hdr { padding:10px 16px 0 !important; }
+          .obs-hdr h1 { font-size:18px !important; }
+          .obs-hdr p { font-size:11px !important; margin-top:4px !important; }
           .obs-sp { width:100% !important; right:0 !important; left:0 !important; top:auto !important; bottom:0 !important; max-height:45vh !important; border-radius:14px 14px 0 0 !important; }
           .obs-cc { left:0 !important; right:0 !important; bottom:0 !important; max-width:100% !important; border-radius:14px 14px 0 0 !important; padding:16px !important; }
-          .obs-sts { gap:20px !important; }
-          .obs-stat-num { font-size:18px !important; }
+          .obs-sts { gap:16px !important; margin-top:10px !important; }
+          .obs-stat-num { font-size:16px !important; }
           .obs-sun-card { width:calc(100% - 32px) !important; max-width:100% !important; }
+          .obs-updated { margin-top:6px !important; }
         }
       `}</style>
 
@@ -873,7 +876,7 @@ export default function Observatory() {
             ))}
           </div>
           {lastUpdated && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="obs-updated" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6ECE8A", display: "inline-block", flexShrink: 0 }} />
               <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", letterSpacing: "0.06em" }}>{lastUpdated}</span>
             </div>
