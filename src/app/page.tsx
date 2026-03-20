@@ -551,6 +551,18 @@ export default function Observatory() {
       });
     });
 
+    // ---- HTML overlay labels (mobile only) ----
+    const labelDivs: Map<string, HTMLDivElement> = new Map();
+    if (isMobile) {
+      S.planets.forEach((p) => {
+        const div = document.createElement("div");
+        div.textContent = (p.cfg.shortName || p.sector).toUpperCase();
+        div.style.cssText = `position:absolute;pointer-events:none;font-family:'IBM Plex Sans',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${p.cfg.color};white-space:nowrap;z-index:5;transform:translateX(-50%);`;
+        container.appendChild(div);
+        labelDivs.set(p.sector, div);
+      });
+    }
+
     // ---- Raycaster ----
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -667,9 +679,29 @@ export default function Observatory() {
         (p.glow.material as THREE.MeshBasicMaterial).opacity = p.glowOpacity;
         (p.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = p.emissiveVal;
 
-        // Hide label on mobile when zoomed into this sector
-        if (S.isMobile && S.mode === "zoomed" && p.sector === S.targetSector) {
+        // Mobile: hide sprite labels, use HTML overlays instead
+        if (S.isMobile) {
           (p.label.material as THREE.SpriteMaterial).opacity = 0;
+          const div = labelDivs.get(p.sector);
+          if (div) {
+            if (S.mode === "zoomed" && p.sector === S.targetSector) {
+              div.style.display = "none";
+            } else {
+              div.style.display = "";
+              const worldPos = new THREE.Vector3();
+              p.mesh.getWorldPosition(worldPos);
+              worldPos.y += p.cfg.planetSize + 0.4;
+              const projected = worldPos.clone().project(camera);
+              const hw = container.clientWidth / 2;
+              const hh = container.clientHeight / 2;
+              let sx = hw + projected.x * hw;
+              let sy = hh - projected.y * hh;
+              sx = Math.max(60, Math.min(container.clientWidth - 60, sx));
+              sy = Math.max(40, Math.min(container.clientHeight - 40, sy));
+              div.style.left = sx + "px";
+              div.style.top = sy + "px";
+            }
+          }
         }
       });
 
@@ -731,6 +763,7 @@ export default function Observatory() {
       window.removeEventListener("resize", handleResize);
       renderer.domElement.removeEventListener("click", onClick);
       renderer.domElement.removeEventListener("mousemove", onMouseMove);
+      labelDivs.forEach((div) => div.remove());
       container.removeChild(renderer.domElement);
       renderer.dispose();
     };
