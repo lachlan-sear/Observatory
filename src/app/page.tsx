@@ -857,7 +857,7 @@ export default function Observatory() {
             </span>
           </div>
           <p style={{ fontSize: 13, color: "rgba(231,243,233,0.35)", marginTop: 8, fontWeight: 300, lineHeight: 1.5, maxWidth: 480 }}>
-            Mapping vertical AI across regulated industries. Click a planet to explore a vertical.
+            Mapping the AI landscape — from vertical specialists in regulated industries to the infrastructure and frontier tech powering them. Click a planet to explore a sector.
           </p>
           <div className="obs-sts" style={{ display: "flex", gap: 32, marginTop: 18 }}>
             {[
@@ -1111,7 +1111,7 @@ export default function Observatory() {
               Lachlan Sear
             </div>
             <p style={{ fontSize: 13, color: "rgba(231,243,233,0.55)", lineHeight: 1.65, fontWeight: 300, margin: "0 0 20px" }}>
-              A curated, live view of the companies shaping AI across regulated and frontier industries. I track vertical AI in healthcare, legal, dental, and veterinary &mdash; where domain expertise, regulatory complexity, and data flywheels create moats that horizontal wrappers cannot replicate. Each planet is a sector. Each moon is a company. The system updates automatically as my pipeline evolves.
+              A curated, live view of the companies shaping AI across four sectors. My thesis centres on vertical AI in regulated industries &mdash; healthcare, legal, dental, veterinary &mdash; where domain expertise and compliance complexity create moats that horizontal wrappers cannot replicate. But the full picture includes the horizontal platforms, infrastructure layer, and deep tech powering them. Each planet is a sector. Each moon is a company. The system updates automatically as my pipeline evolves.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <a href="https://lachlansear.com" target="_blank" rel="noopener noreferrer" className="obs-link">
