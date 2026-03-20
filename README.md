@@ -37,4 +37,4 @@ The Observatory exists to see the landscape rather than just read it. It's the v
 
 ---
 
-Built by [Lachlan Sear](https://www.linkedin.com/in/lachlansear/).
+Built by [Lachlan Sear](https://www.linkedin.com/in/lachlan-sear-41b84b131/).

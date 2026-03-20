@@ -620,7 +620,7 @@ export default function Observatory() {
           <div className="obs-fi obs-fi-3" style={{ position: "absolute", bottom: 22, left: 0, right: 0, textAlign: "center", zIndex: 10 }}>
             <span style={{ fontSize: 11, color: "rgba(231,243,233,0.18)", fontWeight: 300 }}>
               Full analysis available on request &mdash;{" "}
-              <a href="https://www.linkedin.com/in/lachlansear/" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/" target="_blank" rel="noopener noreferrer"
                 style={{ color: "rgba(212,165,116,0.4)", textDecoration: "none", borderBottom: "1px solid rgba(212,165,116,0.15)" }}>
                 LinkedIn
               </a>
@@ -739,7 +739,7 @@ export default function Observatory() {
           <div style={{ position: "absolute", bottom: selectedCompany ? 150 : 22, left: 0, right: 0, textAlign: "center", zIndex: 5, transition: "bottom 0.3s" }}>
             <span style={{ fontSize: 11, color: "rgba(231,243,233,0.15)", fontWeight: 300 }}>
               Full analysis available on request &mdash;{" "}
-              <a href="https://www.linkedin.com/in/lachlansear/" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/" target="_blank" rel="noopener noreferrer"
                 style={{ color: "rgba(212,165,116,0.35)", textDecoration: "none", borderBottom: "1px solid rgba(212,165,116,0.15)" }}>
                 LinkedIn
               </a>
