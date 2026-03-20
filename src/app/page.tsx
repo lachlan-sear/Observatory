@@ -273,11 +273,11 @@ export default function Observatory() {
     const getScaledOrbit = (r: number) => {
       if (!isMobile) return r;
       if (maxOrbit === minOrbit) return 2.75;
-      return 1.5 + ((r - minOrbit) / (maxOrbit - minOrbit)) * (3.5 - 1.5);
+      return 1.5 + ((r - minOrbit) / (maxOrbit - minOrbit)) * (3.0 - 1.5);
     };
     S.orbitScale = isMobile ? 0.6 : 1.0; // kept for reference but getScaledOrbit used instead
 
-    const systemCamPos = isMobile ? new THREE.Vector3(0, 0, 10) : new THREE.Vector3(0, 5, 12);
+    const systemCamPos = isMobile ? new THREE.Vector3(0, 0, 12) : new THREE.Vector3(0, 5, 12);
     S.cameraPos = systemCamPos.clone();
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
 
@@ -382,7 +382,10 @@ export default function Observatory() {
 
     // ---- System Group (tilted on mobile) ----
     const systemGroup = new THREE.Group();
-    if (isMobile) systemGroup.rotation.x = 1.1;
+    if (isMobile) {
+      systemGroup.rotation.x = 1.1;
+      systemGroup.position.y = -1.5;
+    }
     scene.add(systemGroup);
 
     // ---- Sun ----
@@ -627,7 +630,7 @@ export default function Observatory() {
       // Planets
       S.planets.forEach((p) => {
         const scaledOrbit = S.isMobile
-          ? 1.5 + ((p.cfg.orbitRadius - 3.2) / (9.0 - 3.2)) * (3.5 - 1.5)
+          ? 1.5 + ((p.cfg.orbitRadius - 3.2) / (9.0 - 3.2)) * (3.0 - 1.5)
           : p.cfg.orbitRadius;
         const angle = p.angle + S.time * p.cfg.speed;
         const x = Math.cos(angle) * scaledOrbit;
@@ -768,7 +771,7 @@ export default function Observatory() {
     S.targetSector = null;
 
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
-    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 0, 10) : new THREE.Vector3(0, 5, 12);
+    S.cameraPos = S.isMobile ? new THREE.Vector3(0, 0, 12) : new THREE.Vector3(0, 5, 12);
 
     setMode("system");
     setZoomedSector(null);
