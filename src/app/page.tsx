@@ -50,7 +50,7 @@ const SECTORS: Record<string, SectorConfig> = {
     shortName: "Vertical AI",
   },
   "Horizontal AI": {
-    color: "#3B82F6",
+    color: "#5B7EB5",
     orbitRadius: 5.2,
     planetSize: 0.25,
     speed: 0.04,
@@ -427,6 +427,7 @@ export default function Observatory() {
     sunLabelCanvas.width = 512;
     sunLabelCanvas.height = 128;
     const sunCtx = sunLabelCanvas.getContext("2d")!;
+    sunCtx.clearRect(0, 0, 512, 128);
     sunCtx.textAlign = "center";
     sunCtx.font = "italic 600 36px 'Lora', serif";
     sunCtx.fillStyle = "#D4A574";
@@ -500,6 +501,7 @@ export default function Observatory() {
       canvas.width = 512;
       canvas.height = 64;
       const ctx = canvas.getContext("2d")!;
+      ctx.clearRect(0, 0, 512, 64);
       ctx.font = "500 26px 'IBM Plex Sans', Arial, sans-serif";
       ctx.fillStyle = cfg.color;
       ctx.textAlign = "center";
@@ -513,6 +515,7 @@ export default function Observatory() {
       zlCanvas.width = 512;
       zlCanvas.height = 64;
       const zlCtx = zlCanvas.getContext("2d")!;
+      zlCtx.clearRect(0, 0, 512, 64);
       zlCtx.font = "600 36px 'IBM Plex Sans', Arial, sans-serif";
       zlCtx.fillStyle = cfg.color;
       zlCtx.textAlign = "center";
@@ -536,7 +539,7 @@ export default function Observatory() {
         const sz = isBench ? 0.065 : 0.04;
         const moon = new THREE.Mesh(
           new THREE.SphereGeometry(sz, 16, 16),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(isBench ? "#3B82F6" : cfg.color), transparent: true, opacity: 0.9 })
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(isBench ? "#5B7EB5" : cfg.color), transparent: true, opacity: 0.9 })
         );
         moon.userData = { company: co };
         systemGroup.add(moon);
@@ -545,7 +548,7 @@ export default function Observatory() {
         if (isBench) {
           moonGlow = new THREE.Mesh(
             new THREE.SphereGeometry(sz * 3, 16, 16),
-            new THREE.MeshBasicMaterial({ color: new THREE.Color("#3B82F6"), transparent: true, opacity: 0.12 })
+            new THREE.MeshBasicMaterial({ color: new THREE.Color("#5B7EB5"), transparent: true, opacity: 0.12 })
           );
           systemGroup.add(moonGlow);
         }
@@ -704,7 +707,7 @@ export default function Observatory() {
         p.atmosphere.position.set(x, 0, z);
         p.hitMesh.position.set(x, 0, z);
         p.label.position.set(x, p.cfg.planetSize + 0.5, z);
-        p.zoomedLabel.position.set(x, -(S.isMobile ? p.cfg.planetSize * 0.7 : p.cfg.planetSize) - 0.15, z);
+        p.zoomedLabel.position.set(x, (S.isMobile ? p.cfg.planetSize * 0.7 : p.cfg.planetSize) + 0.4, z);
         (p.zoomedLabel.material as THREE.SpriteMaterial).opacity =
           (S.mode === "zoomed" && p.sector === S.targetSector) ? 0.8 : 0;
 
@@ -782,7 +785,7 @@ export default function Observatory() {
           m.trail.visible = false;
         } else if (m.sector === S.targetSector) {
           (m.mesh.material as THREE.MeshBasicMaterial).opacity = 0.95;
-          m.mesh.scale.setScalar(1.5);
+          m.mesh.scale.setScalar(m.company.status === "Benchmark" ? 1.2 : 1.0);
           if (m.glow) (m.glow.material as THREE.MeshBasicMaterial).opacity = 0.15 + Math.sin(S.time * 2) * 0.08;
           m.trail.visible = true;
         } else {
@@ -941,14 +944,14 @@ export default function Observatory() {
 
         .obs-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px; cursor:pointer; transition: background 0.2s, border-color 0.2s; border: 1px solid transparent; }
         .obs-row:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.06); }
-        .obs-row.active { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.2); }
+        .obs-row.active { background: rgba(91,126,181,0.08); border-color: rgba(91,126,181,0.2); }
 
         .obs-pill { display:inline-block; padding:3px 9px; border-radius:11px; font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; }
-        .obs-bp { background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.25); }
+        .obs-bp { background:rgba(91,126,181,0.15); color:#5B7EB5; border:1px solid rgba(91,126,181,0.25); }
         .obs-wp { background:rgba(110,206,138,0.12); color:#6ECE8A; border:1px solid rgba(110,206,138,0.2); }
 
-        .obs-btn { background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); color:#3B82F6; padding:8px 18px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.25s; text-decoration:none; display:inline-block; }
-        .obs-btn:hover { background:rgba(59,130,246,0.2); border-color:rgba(59,130,246,0.45); }
+        .obs-btn { background:rgba(91,126,181,0.1); border:1px solid rgba(91,126,181,0.25); color:#5B7EB5; padding:8px 18px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.25s; text-decoration:none; display:inline-block; }
+        .obs-btn:hover { background:rgba(91,126,181,0.2); border-color:rgba(91,126,181,0.45); }
 
         .obs-bb { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); padding:7px 16px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:all 0.25s; }
         .obs-bb:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.75); }
@@ -956,8 +959,8 @@ export default function Observatory() {
         .obs-cl { position:absolute; top:12px; right:12px; background:none; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.4); width:28px; height:28px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s; }
         .obs-cl:hover { border-color:rgba(255,255,255,0.25); color:rgba(255,255,255,0.7); }
 
-        .obs-link { color:#3B82F6; text-decoration:none; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:color 0.2s; }
-        .obs-link:hover { color:#60A5FA; }
+        .obs-link { color:#5B7EB5; text-decoration:none; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:color 0.2s; }
+        .obs-link:hover { color:#7E9FCC; }
 
         .obs-panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
         .obs-panel::-webkit-scrollbar { width:4px; }
@@ -1068,8 +1071,8 @@ export default function Observatory() {
               >
                 <span style={{
                   width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                  background: co.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
-                  boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(59,130,246,0.5)" : "none",
+                  background: co.status === "Benchmark" ? "#5B7EB5" : sectorConfig.color,
+                  boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(91,126,181,0.5)" : "none",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "#E7F3E9", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -1098,8 +1101,8 @@ export default function Observatory() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: "50%",
-                  background: selectedCompany.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
-                  boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(59,130,246,0.5)" : "none",
+                  background: selectedCompany.status === "Benchmark" ? "#5B7EB5" : sectorConfig.color,
+                  boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(91,126,181,0.5)" : "none",
                 }} />
                 <h3 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: "#E7F3E9", margin: 0 }}>
                   {selectedCompany.name}
@@ -1170,8 +1173,8 @@ export default function Observatory() {
                   >
                     <span style={{
                       width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      background: co.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
-                      boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(59,130,246,0.5)" : "none",
+                      background: co.status === "Benchmark" ? "#5B7EB5" : sectorConfig.color,
+                      boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(91,126,181,0.5)" : "none",
                     }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: "#E7F3E9", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -1195,8 +1198,8 @@ export default function Observatory() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                   <span style={{
                     width: 10, height: 10, borderRadius: "50%",
-                    background: selectedCompany.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
-                    boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(59,130,246,0.5)" : "none",
+                    background: selectedCompany.status === "Benchmark" ? "#5B7EB5" : sectorConfig.color,
+                    boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(91,126,181,0.5)" : "none",
                   }} />
                   <h3 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: "#E7F3E9", margin: 0 }}>
                     {selectedCompany.name}
