@@ -50,7 +50,7 @@ const SECTORS: Record<string, SectorConfig> = {
     shortName: "Vertical AI",
   },
   "Horizontal AI": {
-    color: "#E8C87A",
+    color: "#3B82F6",
     orbitRadius: 5.2,
     planetSize: 0.25,
     speed: 0.04,
@@ -60,7 +60,7 @@ const SECTORS: Record<string, SectorConfig> = {
     shortName: "Horizontal AI",
   },
   "AI Infrastructure": {
-    color: "#D49A6A",
+    color: "#F97316",
     orbitRadius: 7.0,
     planetSize: 0.20,
     speed: 0.03,
@@ -70,7 +70,7 @@ const SECTORS: Record<string, SectorConfig> = {
     shortName: "AI Infra",
   },
   "Deep Tech & Defence": {
-    color: "#8B9FC4",
+    color: "#6B7280",
     orbitRadius: 9.0,
     planetSize: 0.22,
     speed: 0.02,
@@ -108,11 +108,13 @@ interface PlanetData {
   mesh: THREE.Mesh;
   glow: THREE.Mesh;
   label: THREE.Sprite;
+  zoomedLabel: THREE.Sprite;
   atmosphere: THREE.Mesh;
   hitMesh: THREE.Mesh;
   sector: string;
   cfg: SectorConfig;
   angle: number;
+  frozenAngle: number | null;
   meshScale: number;
   glowScale: number;
   labelScale: number;
@@ -420,20 +422,24 @@ export default function Observatory() {
     );
     systemGroup.add(sunDisc);
 
-    // Sun label sprite
+    // Sun label sprite (two lines)
     const sunLabelCanvas = document.createElement("canvas");
     sunLabelCanvas.width = 512;
-    sunLabelCanvas.height = 64;
+    sunLabelCanvas.height = 128;
     const sunCtx = sunLabelCanvas.getContext("2d")!;
-    sunCtx.font = "italic 400 22px 'Lora', serif";
-    sunCtx.fillStyle = "#D4A574";
     sunCtx.textAlign = "center";
-    sunCtx.fillText("THE OBSERVATORY", 256, 40);
+    sunCtx.font = "italic 600 36px 'Lora', serif";
+    sunCtx.fillStyle = "#D4A574";
+    sunCtx.fillText("THE OBSERVATORY", 256, 48);
+    sunCtx.font = "500 18px 'IBM Plex Sans', Arial, sans-serif";
+    sunCtx.globalAlpha = 0.5;
+    sunCtx.fillText("LACHLAN SEAR", 256, 80);
+    sunCtx.globalAlpha = 1.0;
     const sunLabelSprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(sunLabelCanvas), transparent: true, opacity: 0.4 })
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(sunLabelCanvas), transparent: true, opacity: 0.7 })
     );
-    sunLabelSprite.scale.set(2.5, 0.3, 1);
-    sunLabelSprite.position.set(0, -1.4, 0);
+    sunLabelSprite.scale.set(3.2, 0.8, 1);
+    sunLabelSprite.position.set(0, -1.6, 0);
     systemGroup.add(sunLabelSprite);
 
     const dirLight = new THREE.DirectionalLight("#ffffff", 0.5);
@@ -502,10 +508,23 @@ export default function Observatory() {
       sprite.scale.set(2.8, 0.35, 1);
       systemGroup.add(sprite);
 
+      // Zoomed label (visible only when zoomed into this sector)
+      const zlCanvas = document.createElement("canvas");
+      zlCanvas.width = 512;
+      zlCanvas.height = 64;
+      const zlCtx = zlCanvas.getContext("2d")!;
+      zlCtx.font = "600 36px 'IBM Plex Sans', Arial, sans-serif";
+      zlCtx.fillStyle = cfg.color;
+      zlCtx.textAlign = "center";
+      zlCtx.fillText(sectorName.toUpperCase(), 256, 44);
+      const zoomedLabel = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(zlCanvas), transparent: true, opacity: 0 }));
+      zoomedLabel.scale.set(3.0, 0.4, 1);
+      systemGroup.add(zoomedLabel);
+
       const startAngle = (idx / sectorEntries.length) * Math.PI * 2;
       S.planets.push({
-        mesh: planet, glow, label: sprite, atmosphere: atmo, hitMesh,
-        sector: sectorName, cfg, angle: startAngle,
+        mesh: planet, glow, label: sprite, zoomedLabel, atmosphere: atmo, hitMesh,
+        sector: sectorName, cfg, angle: startAngle, frozenAngle: null,
         meshScale: 1, glowScale: 1, labelScale: 1, labelOpacity: 0.55, glowOpacity: 0.06, emissiveVal: 0.25,
       });
 
@@ -517,7 +536,7 @@ export default function Observatory() {
         const sz = isBench ? 0.065 : 0.04;
         const moon = new THREE.Mesh(
           new THREE.SphereGeometry(sz, 16, 16),
-          new THREE.MeshBasicMaterial({ color: new THREE.Color(isBench ? "#D4A574" : cfg.color), transparent: true, opacity: 0.9 })
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(isBench ? "#3B82F6" : cfg.color), transparent: true, opacity: 0.9 })
         );
         moon.userData = { company: co };
         systemGroup.add(moon);
@@ -526,7 +545,7 @@ export default function Observatory() {
         if (isBench) {
           moonGlow = new THREE.Mesh(
             new THREE.SphereGeometry(sz * 3, 16, 16),
-            new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574"), transparent: true, opacity: 0.12 })
+            new THREE.MeshBasicMaterial({ color: new THREE.Color("#3B82F6"), transparent: true, opacity: 0.12 })
           );
           systemGroup.add(moonGlow);
         }
@@ -675,7 +694,9 @@ export default function Observatory() {
         const scaledOrbit = S.isMobile
           ? 1.5 + ((p.cfg.orbitRadius - 3.2) / (9.0 - 3.2)) * (3.0 - 1.5)
           : p.cfg.orbitRadius;
-        const angle = p.angle + S.time * p.cfg.speed;
+        const angle = (S.mode === "zoomed" && p.sector === S.targetSector && p.frozenAngle !== null)
+          ? p.frozenAngle
+          : p.angle + S.time * p.cfg.speed;
         const x = Math.cos(angle) * scaledOrbit;
         const z = Math.sin(angle) * scaledOrbit;
         p.mesh.position.set(x, 0, z);
@@ -683,6 +704,9 @@ export default function Observatory() {
         p.atmosphere.position.set(x, 0, z);
         p.hitMesh.position.set(x, 0, z);
         p.label.position.set(x, p.cfg.planetSize + 0.5, z);
+        p.zoomedLabel.position.set(x, -(S.isMobile ? p.cfg.planetSize * 0.7 : p.cfg.planetSize) - 0.15, z);
+        (p.zoomedLabel.material as THREE.SpriteMaterial).opacity =
+          (S.mode === "zoomed" && p.sector === S.targetSector) ? 0.8 : 0;
 
         // Planet self-rotation
         p.mesh.rotation.y += 0.003;
@@ -817,6 +841,8 @@ export default function Observatory() {
 
     const planet = S.planets.find((p) => p.sector === sector);
     if (!planet) return;
+    // Freeze this planet's orbital position
+    planet.frozenAngle = planet.angle + S.time * planet.cfg.speed;
     const pp = planet.mesh.position.clone();
     const dir = pp.clone().normalize();
     const zoomDist = S.isMobile ? 5.6 : 2.8;
@@ -824,7 +850,7 @@ export default function Observatory() {
     S.cameraTarget = pp.clone();
     S.cameraPos = new THREE.Vector3(pp.x + dir.x * zoomDist, S.isMobile ? 4.0 : 2.0, pp.z + dir.z * zoomDist);
 
-    window.history.pushState({ view: "zoomed" }, "");
+    window.history.pushState({ observatory: "zoomed", sector }, "", "#" + sector.toLowerCase().replace(/ /g, "-").replace(/&/g, "and"));
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
@@ -832,11 +858,13 @@ export default function Observatory() {
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
 
-  const zoomOut = useCallback(() => {
+  const doZoomOut = useCallback(() => {
     const S = stateRef.current;
     if (S.animating) return;
     S.animating = true;
     S.mode = "system";
+    // Unfreeze all planets
+    S.planets.forEach((p) => { p.frozenAngle = null; });
     S.targetSector = null;
 
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
@@ -848,18 +876,23 @@ export default function Observatory() {
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
 
+  // UI back button: go through history so popstate fires
+  const zoomOut = useCallback(() => {
+    window.history.back();
+  }, []);
+
   // --------------------------------------------------------
   // BROWSER BACK BUTTON
   // --------------------------------------------------------
   useEffect(() => {
     const onPopState = () => {
       if (stateRef.current.mode === "zoomed") {
-        zoomOut();
+        doZoomOut();
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [zoomOut]);
+  }, [doZoomOut]);
 
   // --------------------------------------------------------
   // RENDER
@@ -908,14 +941,14 @@ export default function Observatory() {
 
         .obs-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px; cursor:pointer; transition: background 0.2s, border-color 0.2s; border: 1px solid transparent; }
         .obs-row:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.06); }
-        .obs-row.active { background: rgba(212,165,116,0.08); border-color: rgba(212,165,116,0.2); }
+        .obs-row.active { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.2); }
 
         .obs-pill { display:inline-block; padding:3px 9px; border-radius:11px; font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; }
-        .obs-bp { background:rgba(212,165,116,0.15); color:#D4A574; border:1px solid rgba(212,165,116,0.25); }
+        .obs-bp { background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.25); }
         .obs-wp { background:rgba(110,206,138,0.12); color:#6ECE8A; border:1px solid rgba(110,206,138,0.2); }
 
-        .obs-btn { background:rgba(212,165,116,0.1); border:1px solid rgba(212,165,116,0.25); color:#D4A574; padding:8px 18px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.25s; text-decoration:none; display:inline-block; }
-        .obs-btn:hover { background:rgba(212,165,116,0.2); border-color:rgba(212,165,116,0.45); }
+        .obs-btn { background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); color:#3B82F6; padding:8px 18px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; transition:all 0.25s; text-decoration:none; display:inline-block; }
+        .obs-btn:hover { background:rgba(59,130,246,0.2); border-color:rgba(59,130,246,0.45); }
 
         .obs-bb { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); padding:7px 16px; border-radius:6px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:all 0.25s; }
         .obs-bb:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.75); }
@@ -923,8 +956,8 @@ export default function Observatory() {
         .obs-cl { position:absolute; top:12px; right:12px; background:none; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.4); width:28px; height:28px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s; }
         .obs-cl:hover { border-color:rgba(255,255,255,0.25); color:rgba(255,255,255,0.7); }
 
-        .obs-link { color:#D4A574; text-decoration:none; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:color 0.2s; }
-        .obs-link:hover { color:#E8D4B8; }
+        .obs-link { color:#3B82F6; text-decoration:none; font-size:11px; font-weight:500; letter-spacing:0.04em; transition:color 0.2s; }
+        .obs-link:hover { color:#60A5FA; }
 
         .obs-panel { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
         .obs-panel::-webkit-scrollbar { width:4px; }
@@ -996,7 +1029,7 @@ export default function Observatory() {
             backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
-              <button className="obs-bb" onClick={zoomOut}>&larr; All Sectors</button>
+              <button className="obs-bb" onClick={zoomOut}>&larr; Back</button>
               <div>
                 <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
                   {zoomedSector}
@@ -1035,8 +1068,8 @@ export default function Observatory() {
               >
                 <span style={{
                   width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                  background: co.status === "Benchmark" ? "#D4A574" : sectorConfig.color,
-                  boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(212,165,116,0.5)" : "none",
+                  background: co.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
+                  boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(59,130,246,0.5)" : "none",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "#E7F3E9", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -1065,8 +1098,8 @@ export default function Observatory() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: "50%",
-                  background: selectedCompany.status === "Benchmark" ? "#D4A574" : sectorConfig.color,
-                  boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(212,165,116,0.5)" : "none",
+                  background: selectedCompany.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
+                  boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(59,130,246,0.5)" : "none",
                 }} />
                 <h3 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: "#E7F3E9", margin: 0 }}>
                   {selectedCompany.name}
@@ -1103,7 +1136,7 @@ export default function Observatory() {
         }}>
           <div style={{ padding: "16px 16px 80px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <button className="obs-bb" onClick={zoomOut}>&larr; All Sectors</button>
+              <button className="obs-bb" onClick={zoomOut}>&larr; Back</button>
               <div>
                 <h2 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
                   {zoomedSector}
@@ -1137,8 +1170,8 @@ export default function Observatory() {
                   >
                     <span style={{
                       width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      background: co.status === "Benchmark" ? "#D4A574" : sectorConfig.color,
-                      boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(212,165,116,0.5)" : "none",
+                      background: co.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
+                      boxShadow: co.status === "Benchmark" ? "0 0 8px rgba(59,130,246,0.5)" : "none",
                     }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: "#E7F3E9", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -1162,8 +1195,8 @@ export default function Observatory() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                   <span style={{
                     width: 10, height: 10, borderRadius: "50%",
-                    background: selectedCompany.status === "Benchmark" ? "#D4A574" : sectorConfig.color,
-                    boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(212,165,116,0.5)" : "none",
+                    background: selectedCompany.status === "Benchmark" ? "#3B82F6" : sectorConfig.color,
+                    boxShadow: selectedCompany.status === "Benchmark" ? "0 0 10px rgba(59,130,246,0.5)" : "none",
                   }} />
                   <h3 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: "#E7F3E9", margin: 0 }}>
                     {selectedCompany.name}
