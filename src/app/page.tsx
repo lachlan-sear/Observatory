@@ -60,7 +60,7 @@ const SECTORS: Record<string, SectorConfig> = {
     shortName: "Horizontal AI",
   },
   "AI Infrastructure": {
-    color: "#F97316",
+    color: "#9B7ED8",
     orbitRadius: 7.0,
     planetSize: 0.20,
     speed: 0.03,
@@ -765,7 +765,7 @@ export default function Observatory() {
       sunGlowMeshes.forEach(({ mesh, baseOpacity, freq, amplitude }) => {
         (mesh.material as THREE.MeshBasicMaterial).opacity = baseOpacity + amplitude * Math.sin(S.time * freq);
       });
-      (sunLabelSprite.material as THREE.SpriteMaterial).opacity = 0.4 + 0.1 * Math.sin(S.time * 4.0);
+      (sunLabelSprite.material as THREE.SpriteMaterial).opacity = S.mode === "zoomed" ? 0 : 0.4 + 0.1 * Math.sin(S.time * 4.0);
 
       // Planets
       S.planets.forEach((p) => {
@@ -928,7 +928,7 @@ export default function Observatory() {
     S.cameraTarget = pp.clone();
     S.cameraPos = new THREE.Vector3(pp.x + dir.x * zoomDist, S.isMobile ? 4.0 : 2.0, pp.z + dir.z * zoomDist);
 
-    window.history.pushState({ observatory: "zoomed", sector }, "", "#" + sector.toLowerCase().replace(/ /g, "-").replace(/&/g, "and"));
+    window.history.pushState({ observatory: "zoomed", sector }, "", "#" + sector.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-"));
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
