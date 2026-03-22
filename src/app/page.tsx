@@ -215,6 +215,7 @@ export default function Observatory() {
   const [zoomedSector, setZoomedSector] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showSunCard, setShowSunCard] = useState(false);
+  const showSunCardRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [isMobileState, setIsMobileState] = useState(false);
   const hoveredRef = useRef<string | null>(null);
@@ -496,26 +497,27 @@ export default function Observatory() {
     );
     systemGroup.add(sunDisc);
 
-    // Sun label sprite (two lines)
-    const sunLabelCanvas = document.createElement("canvas");
-    sunLabelCanvas.width = 512;
-    sunLabelCanvas.height = 128;
-    const sunCtx = sunLabelCanvas.getContext("2d")!;
-    sunCtx.clearRect(0, 0, 512, 128);
-    sunCtx.textAlign = "center";
-    sunCtx.font = "italic 600 36px 'Lora', serif";
-    sunCtx.fillStyle = "#D4A574";
-    sunCtx.fillText("THE OBSERVATORY", 256, 48);
-    sunCtx.font = "500 18px 'IBM Plex Sans', Arial, sans-serif";
-    sunCtx.globalAlpha = 0.5;
-    sunCtx.fillText("LACHLAN SEAR", 256, 80);
-    sunCtx.globalAlpha = 1.0;
-    const sunLabelSprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(sunLabelCanvas), transparent: true, opacity: 0.7 })
+    // Sun text shell — text engraved on the sun surface
+    const sunTextSize = 512;
+    const sunTextCanvas = document.createElement("canvas");
+    sunTextCanvas.width = sunTextSize;
+    sunTextCanvas.height = sunTextSize;
+    const stCtx = sunTextCanvas.getContext("2d")!;
+    stCtx.clearRect(0, 0, sunTextSize, sunTextSize);
+    stCtx.textAlign = "center";
+    stCtx.font = "italic 600 28px 'Lora', serif";
+    stCtx.fillStyle = "rgba(80, 50, 30, 0.7)";
+    stCtx.fillText("THE OBSERVATORY", sunTextSize / 2, sunTextSize / 2 - 6);
+    stCtx.font = "500 14px 'IBM Plex Sans', Arial, sans-serif";
+    stCtx.fillStyle = "rgba(80, 50, 30, 0.45)";
+    stCtx.fillText("LACHLAN SEAR", sunTextSize / 2, sunTextSize / 2 + 16);
+    const sunTextTex = new THREE.CanvasTexture(sunTextCanvas);
+    const sunRadius = isMobile ? 0.5 : 0.9;
+    const sunTextShell = new THREE.Mesh(
+      new THREE.SphereGeometry(sunRadius + 0.01, 64, 64),
+      new THREE.MeshBasicMaterial({ map: sunTextTex, transparent: true, depthWrite: false })
     );
-    sunLabelSprite.scale.set(3.2, 0.8, 1);
-    sunLabelSprite.position.set(0, -1.6, 0);
-    systemGroup.add(sunLabelSprite);
+    systemGroup.add(sunTextShell);
 
     const dirLight = new THREE.DirectionalLight("#ffffff", 0.5);
     dirLight.position.set(5, 3, 5);
@@ -679,6 +681,8 @@ export default function Observatory() {
         }
         const sunHits = raycaster.intersectObjects([sun]);
         if (sunHits.length > 0) {
+          window.history.pushState(null, "", "");
+          showSunCardRef.current = true;
           setShowSunCard(true);
         }
       } else {
@@ -765,7 +769,7 @@ export default function Observatory() {
       sunGlowMeshes.forEach(({ mesh, baseOpacity, freq, amplitude }) => {
         (mesh.material as THREE.MeshBasicMaterial).opacity = baseOpacity + amplitude * Math.sin(S.time * freq);
       });
-      (sunLabelSprite.material as THREE.SpriteMaterial).opacity = S.mode === "zoomed" ? 0 : 0.4 + 0.1 * Math.sin(S.time * 4.0);
+      sunTextShell.rotation.y = sun.rotation.y;
 
       // Planets
       S.planets.forEach((p) => {
@@ -932,6 +936,7 @@ export default function Observatory() {
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
+    showSunCardRef.current = false;
     setShowSunCard(false);
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
@@ -966,6 +971,11 @@ export default function Observatory() {
       window.history.replaceState(null, "", window.location.pathname);
     }
     const onPopState = () => {
+      if (showSunCardRef.current) {
+        showSunCardRef.current = false;
+        setShowSunCard(false);
+        return;
+      }
       if (stateRef.current.mode === "zoomed") {
         zoomOut();
       }
@@ -1313,14 +1323,14 @@ export default function Observatory() {
       {showSunCard && (
         <div
           style={{ position: "absolute", inset: 0, zIndex: 25, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
-          onClick={() => setShowSunCard(false)}
+          onClick={() => window.history.back()}
         >
           <div
             className="obs-g obs-ci obs-sun-card"
             style={{ position: "relative", borderRadius: 14, padding: 28, maxWidth: 420, width: "100%" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="obs-cl" onClick={() => setShowSunCard(false)}>&times;</button>
+            <button className="obs-cl" onClick={() => window.history.back()}>&times;</button>
             <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: "#E7F3E9", margin: "0 0 6px" }}>
               The Observatory
             </h2>
@@ -1328,7 +1338,7 @@ export default function Observatory() {
               Lachlan Sear
             </div>
             <p style={{ fontSize: 13, color: "rgba(231,243,233,0.55)", lineHeight: 1.65, fontWeight: 300, margin: "0 0 20px" }}>
-              A curated, live view of the companies shaping AI across four sectors. My thesis centres on vertical AI in regulated industries &mdash; healthcare, legal, dental, veterinary &mdash; where domain expertise and compliance complexity create moats that horizontal wrappers cannot replicate. But the full picture includes the horizontal platforms, infrastructure layer, and deep tech powering them. Each planet is a sector. Each moon is a company. The system updates automatically as my pipeline evolves.
+              A curated, live view of the companies shaping AI across four sectors. My thesis emphasises vertical AI in regulated industries &mdash; healthcare, legal, dental, veterinary &mdash; where domain expertise and compliance complexity create moats that horizontal wrappers cannot replicate. But the full picture includes the horizontal platforms, infrastructure layer, and deep tech powering them. Each planet is a sector. Each moon is a company. The system updates automatically as my pipeline evolves.
             </p>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <a href="https://lachlansear.com" target="_blank" rel="noopener noreferrer" className="obs-link">
