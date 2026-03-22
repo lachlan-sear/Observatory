@@ -928,7 +928,7 @@ export default function Observatory() {
     S.cameraTarget = pp.clone();
     S.cameraPos = new THREE.Vector3(pp.x + dir.x * zoomDist, S.isMobile ? 4.0 : 2.0, pp.z + dir.z * zoomDist);
 
-    window.history.pushState({ observatory: "zoomed", sector }, "", "#" + sector.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-"));
+    window.history.pushState(null, "", "#" + sector.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-"));
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
@@ -936,7 +936,7 @@ export default function Observatory() {
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
 
-  const doZoomOut = useCallback(() => {
+  const zoomOut = useCallback(() => {
     const S = stateRef.current;
     if (S.animating) return;
     S.animating = true;
@@ -948,29 +948,31 @@ export default function Observatory() {
     S.cameraTarget = new THREE.Vector3(0, 0, 0);
     S.cameraPos = S.isMobile ? new THREE.Vector3(0, 0, 12) : new THREE.Vector3(0, 5, 12);
 
+    // Clean hash from URL
+    window.history.replaceState(null, "", window.location.pathname);
+
     setMode("system");
     setZoomedSector(null);
     setSelectedCompany(null);
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
 
-  // UI back button: go through history so popstate fires
-  const zoomOut = useCallback(() => {
-    window.history.back();
-  }, []);
-
   // --------------------------------------------------------
   // BROWSER BACK BUTTON
   // --------------------------------------------------------
   useEffect(() => {
+    // Clear stale hash on initial load
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
     const onPopState = () => {
       if (stateRef.current.mode === "zoomed") {
-        doZoomOut();
+        zoomOut();
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [doZoomOut]);
+  }, [zoomOut]);
 
   // --------------------------------------------------------
   // RENDER
