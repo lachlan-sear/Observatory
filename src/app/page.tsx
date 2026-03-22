@@ -623,6 +623,37 @@ export default function Observatory() {
     renderer.domElement.addEventListener("click", onClick);
     renderer.domElement.addEventListener("mousemove", onMouseMove);
 
+    // ---- Touch drag (mobile only) ----
+    let touchStart = { x: 0, y: 0 };
+    let touchDragging = false;
+    let autoRotateTimeout: ReturnType<typeof setTimeout> | null = null;
+    const baseRotationX = isMobile ? 1.1 : 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!isMobile || e.touches.length !== 1) return;
+      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      touchDragging = true;
+      if (autoRotateTimeout) clearTimeout(autoRotateTimeout);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchDragging || e.touches.length !== 1) return;
+      e.preventDefault();
+      const dx = e.touches[0].clientX - touchStart.x;
+      const dy = e.touches[0].clientY - touchStart.y;
+      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      systemGroup.rotation.y += dx * 0.008;
+      systemGroup.rotation.x = Math.max(0.3, Math.min(1.5, systemGroup.rotation.x + dy * 0.008));
+    };
+    const onTouchEnd = () => {
+      touchDragging = false;
+      autoRotateTimeout = setTimeout(() => {
+        // Gently lerp back to default rotation (handled in animate)
+      }, 3000);
+    };
+    renderer.domElement.addEventListener("touchstart", onTouchStart, { passive: true });
+    renderer.domElement.addEventListener("touchmove", onTouchMove, { passive: false });
+    renderer.domElement.addEventListener("touchend", onTouchEnd, { passive: true });
+
     // ---- Animate ----
     const animate = () => {
       requestAnimationFrame(animate);
@@ -675,7 +706,7 @@ export default function Observatory() {
         p.mesh.scale.setScalar(p.meshScale);
         p.glow.scale.setScalar(p.glowScale);
         p.label.scale.set(2.8 * p.labelScale, 0.35 * p.labelScale, 1);
-        (p.label.material as THREE.SpriteMaterial).opacity = p.labelOpacity;
+        (p.label.material as THREE.SpriteMaterial).opacity = S.mode === "zoomed" ? 0 : p.labelOpacity;
         (p.glow.material as THREE.MeshBasicMaterial).opacity = p.glowOpacity;
         (p.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = p.emissiveVal;
 
@@ -684,7 +715,7 @@ export default function Observatory() {
           (p.label.material as THREE.SpriteMaterial).opacity = 0;
           const div = labelDivs.get(p.sector);
           if (div) {
-            if (S.mode === "zoomed" && p.sector === S.targetSector) {
+            if (S.mode === "zoomed") {
               div.style.display = "none";
             } else {
               div.style.display = "";
@@ -763,6 +794,10 @@ export default function Observatory() {
       window.removeEventListener("resize", handleResize);
       renderer.domElement.removeEventListener("click", onClick);
       renderer.domElement.removeEventListener("mousemove", onMouseMove);
+      renderer.domElement.removeEventListener("touchstart", onTouchStart);
+      renderer.domElement.removeEventListener("touchmove", onTouchMove);
+      renderer.domElement.removeEventListener("touchend", onTouchEnd);
+      if (autoRotateTimeout) clearTimeout(autoRotateTimeout);
       labelDivs.forEach((div) => div.remove());
       container.removeChild(renderer.domElement);
       renderer.dispose();
@@ -789,6 +824,7 @@ export default function Observatory() {
     S.cameraTarget = pp.clone();
     S.cameraPos = new THREE.Vector3(pp.x + dir.x * zoomDist, S.isMobile ? 4.0 : 2.0, pp.z + dir.z * zoomDist);
 
+    window.history.pushState({ view: "zoomed" }, "");
     setMode("zoomed");
     setZoomedSector(sector);
     setSelectedCompany(null);
@@ -811,6 +847,19 @@ export default function Observatory() {
     setSelectedCompany(null);
     setTimeout(() => { S.animating = false; }, 1200);
   }, []);
+
+  // --------------------------------------------------------
+  // BROWSER BACK BUTTON
+  // --------------------------------------------------------
+  useEffect(() => {
+    const onPopState = () => {
+      if (stateRef.current.mode === "zoomed") {
+        zoomOut();
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [zoomOut]);
 
   // --------------------------------------------------------
   // RENDER
@@ -939,33 +988,33 @@ export default function Observatory() {
       {/* ======== ZOOMED VIEW (DESKTOP) ======== */}
       {isReady && mode === "zoomed" && sectorConfig && !isMobileState && (
         <>
-          {/* Header */}
-          <div className="obs-su" style={{ position: "absolute", top: 22, left: 24, zIndex: 10, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <button className="obs-bb" onClick={zoomOut}>&larr; System</button>
-            <div>
-              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
-                {zoomedSector}
-              </h2>
-              <span style={{ fontSize: 10, color: "rgba(231,243,233,0.25)", letterSpacing: "0.06em" }}>
-                {sectorCompanies.length} companies
-              </span>
-            </div>
-            {lastUpdated && (
-              <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6ECE8A", display: "inline-block", flexShrink: 0 }} />
-                {lastUpdated}
-              </span>
-            )}
-          </div>
-
-          {/* Sector description */}
+          {/* Header + description card */}
           <div className="obs-su" style={{
-            position: "absolute", top: 72, left: 24, zIndex: 10,
-            maxWidth: 340, animationDelay: "0.1s",
+            position: "absolute", top: 22, left: 24, zIndex: 10,
+            maxWidth: 380, borderRadius: 12, padding: "16px 20px",
+            background: "rgba(6,9,16,0.85)", border: "1px solid rgba(255,255,255,0.06)",
+            backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
           }}>
-            <p style={{ fontSize: 12, color: "rgba(231,243,233,0.3)", lineHeight: 1.55, fontWeight: 300, margin: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
+              <button className="obs-bb" onClick={zoomOut}>&larr; All Sectors</button>
+              <div>
+                <h2 style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
+                  {zoomedSector}
+                </h2>
+                <span style={{ fontSize: 10, color: "rgba(231,243,233,0.25)", letterSpacing: "0.06em" }}>
+                  {sectorCompanies.length} companies
+                </span>
+              </div>
+            </div>
+            <p style={{ fontSize: 12, color: "rgba(231,243,233,0.35)", lineHeight: 1.55, fontWeight: 300, margin: "0 0 8px" }}>
               {sectorConfig.description}
             </p>
+            {lastUpdated && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6ECE8A", display: "inline-block", flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "rgba(231,243,233,0.2)", letterSpacing: "0.06em" }}>{lastUpdated}</span>
+              </div>
+            )}
           </div>
 
           {/* Company panel */}
@@ -1054,7 +1103,7 @@ export default function Observatory() {
         }}>
           <div style={{ padding: "16px 16px 80px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <button className="obs-bb" onClick={zoomOut}>&larr; System</button>
+              <button className="obs-bb" onClick={zoomOut}>&larr; All Sectors</button>
               <div>
                 <h2 style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, color: sectorConfig.color, margin: 0 }}>
                   {zoomedSector}
