@@ -391,9 +391,83 @@ export default function Observatory() {
     scene.add(systemGroup);
 
     // ---- Sun ----
+    const sunTimeUniform2 = { value: 0 };
     const sun = new THREE.Mesh(
       new THREE.SphereGeometry(isMobile ? 0.5 : 0.9, 64, 64),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color("#D4A574") })
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: sunTimeUniform2,
+          uColorBright: { value: new THREE.Color("#D4A574") },
+          uColorDark: { value: new THREE.Color("#B07840") },
+          uLightDir: { value: new THREE.Vector3(5, 3, 5).normalize() },
+        },
+        vertexShader: `
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          varying vec3 vViewDir;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+            vViewDir = normalize(-mvPos.xyz);
+            vPosition = position;
+            gl_Position = projectionMatrix * mvPos;
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform vec3 uColorBright;
+          uniform vec3 uColorDark;
+          uniform vec3 uLightDir;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          varying vec3 vViewDir;
+
+          float hash(vec3 p) {
+            p = fract(p * vec3(443.897, 441.423, 437.195));
+            p += dot(p, p.yzx + 19.19);
+            return fract((p.x + p.y) * p.z);
+          }
+          float noise(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+              mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
+                  mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+              mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                  mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y),
+              f.z);
+          }
+          float fbm(vec3 p) {
+            float v = 0.0;
+            v += 0.5 * noise(p); p *= 2.1;
+            v += 0.25 * noise(p); p *= 2.3;
+            v += 0.125 * noise(p);
+            return v;
+          }
+          void main() {
+            // Limb darkening
+            float rim = dot(vNormal, vViewDir);
+            float limb = pow(rim, 0.6);
+
+            // Surface noise
+            vec3 noisePos = vPosition * 4.0 + vec3(uTime * 0.08, uTime * 0.05, uTime * 0.03);
+            float n = fbm(noisePos);
+
+            // Mix colours
+            vec3 col = mix(uColorDark, uColorBright, 0.4 + 0.6 * n);
+
+            // Apply limb darkening
+            col *= (0.4 + 0.6 * limb);
+
+            // Directional highlight (upper-right)
+            float highlight = max(dot(vNormal, uLightDir), 0.0);
+            col += vec3(0.08, 0.06, 0.03) * pow(highlight, 3.0);
+
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `,
+      })
     );
     systemGroup.add(sun);
     S.sunMesh = sun;
@@ -686,6 +760,7 @@ export default function Observatory() {
 
       // Sun
       sun.rotation.y += 0.001;
+      sunTimeUniform2.value = S.time;
       sunDisc.rotation.z += 0.0015;
       sunGlowMeshes.forEach(({ mesh, baseOpacity, freq, amplitude }) => {
         (mesh.material as THREE.MeshBasicMaterial).opacity = baseOpacity + amplitude * Math.sin(S.time * freq);
