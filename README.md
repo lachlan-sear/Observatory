@@ -1,6 +1,6 @@
 # The Observatory
 
-A live, interactive solar system mapping 47 companies across European and US venture — built to visualise deal flow the way an investor actually thinks about it.
+A live, interactive solar system mapping companies across European and US venture — built to visualise deal flow the way an investor actually thinks about it.
 
 **[→ observatory.lachlansear.com](https://observatory.lachlansear.com)**
 
