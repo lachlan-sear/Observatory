@@ -169,17 +169,9 @@ function getStatusLabel(status: string) {
   return "tracking";
 }
 
-function getLastUpdated(companies: Company[]): string {
-  let latestMs = 0;
-  companies.forEach((c) => {
-    const dates = [c.dateUpdated, c.dateAdded].filter(Boolean) as string[];
-    dates.forEach((d) => {
-      const ms = new Date(d).getTime();
-      if (ms > latestMs) latestMs = ms;
-    });
-  });
-  if (latestMs === 0) return "";
-  const days = Math.floor((Date.now() - latestMs) / (1000 * 60 * 60 * 24));
+function formatLastUpdated(dateStr: string): string {
+  if (!dateStr) return "";
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
   if (days === 0) return "Updated today";
   if (days === 1) return "Updated yesterday";
   if (days < 14) return `Updated ${days} days ago`;
@@ -210,6 +202,7 @@ export default function Observatory() {
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastModified, setLastModified] = useState("");
   const [fetchError, setFetchError] = useState(false);
   const [mode, setMode] = useState("system");
   const [zoomedSector, setZoomedSector] = useState<string | null>(null);
@@ -227,7 +220,8 @@ export default function Observatory() {
         const res = await fetch(API_URL);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
-        setCompanies(data);
+        setCompanies(data.companies);
+        setLastModified(data.lastModified || "");
       } catch (e) {
         console.warn("Failed to fetch from tracker API:", e);
         setFetchError(true);
@@ -247,7 +241,7 @@ export default function Observatory() {
     };
   }, [companies]);
 
-  const lastUpdated = useMemo(() => getLastUpdated(companies), [companies]);
+  const lastUpdated = useMemo(() => formatLastUpdated(lastModified), [lastModified]);
 
   const sectorCompanies = useMemo(() => {
     if (!zoomedSector) return [];
