@@ -219,9 +219,10 @@ export default function Observatory() {
       try {
         const res = await fetch(API_URL);
         if (!res.ok) throw new Error("API error");
-        const data = await res.json();
-        setCompanies(data.companies);
-        setLastModified(data.lastModified || "");
+        const raw = await res.json();
+        const companiesData = Array.isArray(raw) ? raw : (raw.companies || []);
+        setCompanies(companiesData);
+        setLastModified(Array.isArray(raw) ? "" : (raw.lastModified || ""));
       } catch (e) {
         console.warn("Failed to fetch from tracker API:", e);
         setFetchError(true);
