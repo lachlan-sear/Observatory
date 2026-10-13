@@ -39,9 +39,9 @@ framed only by the hosts in `OBSERVATORY_FRAME_ANCESTORS`. A host page can
 hide a reader's own portfolio in either of two ways:
 
 ```html
-<iframe src="https://observatory.lachlansear.com/embed?hide=Neuracore,Lovable"></iframe>
+<iframe src="https://observatory.lachlansear.com/embed?hide=Acme,Example"></iframe>
 <script>
-  frame.contentWindow.postMessage({ type: "observatory:hide", names: ["Neuracore"] }, "*");
+  frame.contentWindow.postMessage({ type: "observatory:hide", names: ["Acme"] }, "*");
 </script>
 ```
 

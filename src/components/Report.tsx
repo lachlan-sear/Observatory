@@ -1,5 +1,5 @@
 import type { Company, ObservatoryData, Sector } from "@/lib/types";
-import { domain, longDate, month, nextMonday, sectorColor, shortDate, usd } from "@/lib/format";
+import { domain, longDate, month, raisedLabel, sectorColor, shortDate, usd } from "@/lib/format";
 
 /* ---------- Money: one row per orbit, each company a dot on a log scale ---------- */
 
@@ -9,7 +9,7 @@ export function MoneyStrip({ companies, sectors }: { companies: Company[]; secto
   const x = (m: number) => padL + ((Math.log10(Math.max(min, m)) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (W - padL - padR);
   const ticks = [1, 10, 100, 1000];
   // Label every company: lanes above and below the line, first lane that has room.
-  const LANES = [-14, 26, -34, 46, -54, 66];
+  const LANES = [-14, 28, -38, 52, -62, 76];
   const charW = 7.4;
   const rows = sectors.map((s) => {
     const list = companies
@@ -57,12 +57,21 @@ export function MoneyStrip({ companies, sectors }: { companies: Company[]; secto
               const dy = LANES[lane];
               return (
                 <g key={c.name}>
-                  {(Math.abs(dy) > 26 || Math.abs(lx - cx) > 4) && (
-                    <line x1={cx} y1={cy + (dy < 0 ? -6 : 6)} x2={lx} y2={cy + dy + (dy < 0 ? 4 : -12)} className="leader" />
+                  {(Math.abs(dy) > 28 || Math.abs(lx - cx) > 4) && (() => {
+                    // run the leader to the near edge of the label, not through it
+                    const w = c.name.length * charW;
+                    const ex = Math.min(Math.max(cx, lx - w / 2), lx + w / 2);
+                    return <line x1={cx} y1={cy + (dy < 0 ? -7 : 7)} x2={ex} y2={cy + dy + (dy < 0 ? 5 : -13)} className="leader" />;
+                  })()}
+                  {c.raisedBasis === "latest_round" ? (
+                    <circle cx={cx} cy={cy} r={5.5} fill="#EEF1F5" stroke={exited ? "#85570A" : sectorColor(sectors, s.id)} strokeWidth={2}>
+                      <title>{`${c.name}: ${raisedLabel(c)} (latest round only)`}</title>
+                    </circle>
+                  ) : (
+                    <circle cx={cx} cy={cy} r={exited ? 6.5 : 6} fill={exited ? "#85570A" : sectorColor(sectors, s.id)} stroke="#EEF1F5" strokeWidth={1.5}>
+                      <title>{`${c.name}: ${raisedLabel(c)} raised${exited ? " (exit)" : ""}`}</title>
+                    </circle>
                   )}
-                  <circle cx={cx} cy={cy} r={exited ? 6.5 : 6} fill={exited ? "#9C680A" : sectorColor(sectors, s.id)} stroke="#EEF1F5" strokeWidth={1.5}>
-                    <title>{`${c.name}: ${c.raised} raised${exited ? " (exited)" : ""}`}</title>
-                  </circle>
                   <text x={lx} y={cy + dy} textAnchor="middle" className={exited ? "dot-label exited" : "dot-label"}>{c.name}</text>
                 </g>
               );
@@ -70,14 +79,27 @@ export function MoneyStrip({ companies, sectors }: { companies: Company[]; secto
           </g>
         ))}
       </svg>
-      <figcaption>Total disclosed capital raised, converted to dollars at approximate rates for placement only; a figure marked + is the latest round alone. Hover a dot for the figure as reported.</figcaption>
+      <figcaption>Total disclosed capital raised, converted to dollars at approximate rates for placement only. Hollow dots are the latest round alone, where earlier rounds aren&apos;t yet totalled; brass dots are exits. Hover a dot for the figure as reported.</figcaption>
+      <ul className="money-list" aria-label="Capital raised by company">
+        {sectors.map((s) => (
+          <li key={s.id}>
+            <span className="ml-sector"><span className="dot" style={{ background: sectorColor(sectors, s.id) }} aria-hidden />{s.short}</span>
+            <span className="ml-items">
+              {companies.filter((c) => c.sector === s.id && c.raisedUsdM)
+                .sort((a, b) => (b.raisedUsdM || 0) - (a.raisedUsdM || 0))
+                .map((c) => `${c.name} ${raisedLabel(c)}`).join(" · ")}
+            </span>
+          </li>
+        ))}
+      </ul>
     </figure>
   );
 }
 
 /* ---------- Where: cities by count ---------- */
 
-export function Where({ companies, sectors }: { companies: Company[]; sectors: Sector[] }) {
+export function Where({ companies: all, sectors }: { companies: Company[]; sectors: Sector[] }) {
+  const companies = all.filter((c) => c.status !== "exited" && c.status !== "shut_down");
   const byCity = new Map<string, Company[]>();
   companies.forEach((c) => {
     const k = c.geo || "Unknown";
@@ -98,7 +120,7 @@ export function Where({ companies, sectors }: { companies: Company[]; sectors: S
             <span className="bar-track" aria-hidden>
               {list.map((c) => (
                 <span key={c.name} className="bar-seg" title={c.name}
-                  style={{ width: `${100 / maxN}%`, background: c.status === "exited" ? "#9C680A" : sectorColor(sectors, c.sector) }} />
+                  style={{ width: `${100 / maxN}%`, background: c.status === "exited" ? "#85570A" : sectorColor(sectors, c.sector) }} />
               ))}
             </span>
             <span className="bar-n">{list.length}</span>
@@ -123,7 +145,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
             <span className={`kind kind-${c.kind}`}>{c.kind === "exit" ? "Exit" : c.kind === "round" ? "Round" : c.kind === "shutdown" ? "Shut down" : "Update"}</span>
             <span className="ch-head">{c.headline}</span>
             <span className="ch-meta">
-              <span className="dot" style={{ background: c.kind === "exit" ? "#9C680A" : sectorColor(data.thesis.sectors, c.sector) }} aria-hidden />
+              <span className="dot" style={{ background: c.kind === "exit" ? "#85570A" : sectorColor(data.thesis.sectors, c.sector) }} aria-hidden />
               {month(c.date)}
               {c.source && <> <a href={c.source} target="_blank" rel="noreferrer">{domain(c.source)}</a></>}
             </span>
@@ -132,7 +154,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
       </ol>
       <p className="fine">
         {e.kind === "seed"
-          ? `Checked by hand on ${longDate(e.date)}. From ${longDate(nextMonday(e.date))} the weekly run takes over.`
+          ? `Checked by hand on ${longDate(e.date)}. Weekly checks take over once the scheduled run is switched on.`
           : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} changes applied, ${e.held} held for a human because their source didn't say so.`}
       </p>
     </div>
@@ -176,7 +198,7 @@ export function Exits({ companies }: { companies: Company[] }) {
           <span className="ex-acq">{c.exit?.acquirer || "Undisclosed"}</span>
           <span className="ex-meta">
             {c.exit?.type === "ipo" ? "Listing" : "Acquisition"}
-            {c.exit?.state ? `, ${c.exit.state}` : ""}, {month(c.exit?.date)}. {c.exit?.value && c.exit.value !== "Not disclosed" ? `${c.exit.value}. ` : "Terms not disclosed. "}
+            {c.exit?.state === "announced" ? ", agreed and pending completion" : c.exit?.state ? `, ${c.exit.state}` : ""}, {month(c.exit?.date)}. {c.exit?.value && c.exit.value !== "Not disclosed" ? `${c.exit.value}. ` : "Terms not disclosed. "}
             {c.exit?.source && <a href={c.exit.source} target="_blank" rel="noreferrer">{domain(c.exit.source)}</a>}
           </span>
         </li>
@@ -194,20 +216,20 @@ export function Method({ data }: { data: ObservatoryData }) {
     <div className="method">
       <ol className="flow">
         <li>
-          <h4>One thesis file</h4>
-          <p>The fund writes its belief, its orbits, the signals it trusts, how it scores, and its own portfolio to hide. Swap the file and every step below re-orients.</p>
+          <h4>One interests file</h4>
+          <p>A belief, the orbits, the signals worth trusting, how to score, and any companies to leave off. Swap the file and every step below re-orients.</p>
         </li>
         <li>
-          <h4>Refresh, every Monday</h4>
+          <h4>Refresh, each week</h4>
           <p>Each tracked company is searched for a new round, an exit or a shutdown since it was last checked. Pending names get their first figures.</p>
         </li>
         <li>
           <h4>Source check</h4>
-          <p>A change is applied only if the page it cites names the company and states the amount or the acquirer. Anything else is held for a person{data.heldForReview ? `; ${data.heldForReview} are held now` : ""}.</p>
+          <p>A change is applied only if the page it cites states the amount or the acquirer right next to the company&apos;s name. Anything else is held for a person{data.heldForReview ? `; ${data.heldForReview} are held now` : ""}.</p>
         </li>
         <li>
           <h4>Scout and radar</h4>
-          <p>Twelve free sources and thesis-shaped web searches find new candidates, scored on the fund&apos;s own rubric. They go to an inbox, never straight into the tracker.</p>
+          <p>Web searches shaped by the interests file, plus up to twelve other sources (some need a free key), find new candidates and score them on its rubric. They go to an inbox, never straight into the map.</p>
         </li>
         <li>
           <h4>Publish</h4>
@@ -216,10 +238,11 @@ export function Method({ data }: { data: ObservatoryData }) {
       </ol>
       <dl className="method-facts">
         <div><dt>Schedule</dt><dd>{data.method.schedule}</dd></div>
-        <div><dt>Checked against a source</dt><dd>{live.length - pending} of {live.length}</dd></div>
-        <div><dt>Awaiting first check</dt><dd>{pending}</dd></div>
-        <div><dt>Lenses the scorer applies</dt><dd>{data.thesis.lenses.join(", ")}</dd></div>
-        <div><dt>Stage and geography</dt><dd>{data.thesis.stage}; {[...(data.thesis.geography.primary || []), ...(data.thesis.geography.secondary || [])].map((g) => g.length <= 3 ? g.toUpperCase() : g[0].toUpperCase() + g.slice(1)).join(", ")}</dd></div>
+        {data.audit && (
+          <div><dt>Figures matched to their source</dt><dd>{data.audit.passed} of {data.audit.checked}, {shortDate(data.audit.date)}{data.audit.unreadable ? ` (${data.audit.unreadable} source${data.audit.unreadable === 1 ? "" : "s"} couldn't be fetched)` : ""}</dd></div>
+        )}
+        {pending > 0 && <div><dt>Awaiting first check</dt><dd>{pending} of {live.length}</dd></div>}
+        <div><dt>Lenses applied to new candidates</dt><dd>{data.thesis.lenses.join(", ")}</dd></div>
         <div><dt>Data published</dt><dd>{shortDate(data.generatedAt)}</dd></div>
       </dl>
     </div>

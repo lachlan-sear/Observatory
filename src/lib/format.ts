@@ -56,3 +56,22 @@ export function sectorColor(sectors: { id: string; color?: string | null }[], id
   const i = sectors.findIndex((s) => s.id === id);
   return sectors[i]?.color || FALLBACK_COLORS[(i < 0 ? 0 : i) % FALLBACK_COLORS.length];
 }
+
+export const BRASS = "#85570A";
+
+/** "$1.8B" known only as the latest round reads "≥$1.8B"; estimates read "~". */
+export function raisedLabel(c: { raised: string | null; raisedBasis?: string }): string {
+  if (!c.raised) return "";
+  const r = c.raised.replace(/^[~≥]/, "");
+  if (c.raisedBasis === "latest_round") return `≥${r}`;
+  if (c.raisedBasis === "estimate") return `~${r}`;
+  return c.raised;
+}
+
+export function isRecent(dateYm: string | undefined, editionIso: string | undefined, days = 42): boolean {
+  if (!dateYm || !editionIso) return false;
+  const [y, m] = dateYm.split("-").map(Number);
+  const end = new Date(Date.UTC(y, m || 12, 0)); // last day of that month
+  const ed = new Date(editionIso.slice(0, 10) + "T00:00:00Z");
+  return (ed.getTime() - end.getTime()) / 86400000 <= days;
+}

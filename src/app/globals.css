@@ -9,7 +9,7 @@
   --line: #C9D1DC;
   --line-soft: #DEE4EC;
   --teal: #17796F;
-  --brass: #9C680A;
+  --brass: #85570A;
   --serif: "Newsreader", "Source Serif 4", Georgia, serif;
   --sans: "Onest", "IBM Plex Sans", system-ui, sans-serif;
   --measure: 34rem;
@@ -137,8 +137,15 @@ code { font: 500 0.9em/1 ui-monospace, Menlo, monospace; background: var(--line-
 .orbit .orbit-names { font-size: 13.5px; color: var(--muted); }
 
 /* Money strip */
-.money { margin: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.money svg { min-width: 720px; }
+.money { margin: 0; }
+.money-list { display: none; list-style: none; margin: 14px 0 0; padding: 0; }
+.money-list li { padding: 10px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.ml-sector { display: flex; align-items: center; font: 500 16px var(--serif); margin-bottom: 4px; }
+.ml-items { color: var(--ink-2); line-height: 1.6; }
+@media (max-width: 640px) {
+  .money svg { display: none; }
+  .money-list { display: block; }
+}
 .money svg { width: 100%; height: auto; overflow: visible; }
 .money .grid { stroke: var(--line-soft); }
 .money .baseline { stroke: var(--line); }

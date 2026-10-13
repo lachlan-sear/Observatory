@@ -15,6 +15,8 @@ export type Company = {
   stage: string | null;
   raised: string | null;
   raisedUsdM: number | null;
+  raisedBasis?: "total" | "latest_round" | "estimate";
+  aliases?: string[];
   investors: string[];
   lastRound: Round | null;
   exit: Exit | null;
@@ -51,4 +53,5 @@ export type ObservatoryData = {
   candidates: Candidate[];
   heldForReview: number;
   method: { schedule: string; requireSourceMatch: boolean; excludedCount: number };
+  audit?: { date: string; passed: number; checked: number; unreadable?: number; notStated?: number } | null;
 };

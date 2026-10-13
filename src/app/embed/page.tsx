@@ -19,10 +19,10 @@ export default async function Embed() {
       <HideFromQuery />
       <div className="embed-head">
         <p className="embed-title">{data.thesis.name}</p>
-        {data.edition && <p className="fine">Edition {data.edition.number}, {longDate(data.edition.date)}. Updated weekly.</p>}
+        {data.edition && <p className="fine">Edition {data.edition.number}, {longDate(data.edition.date)}.</p>}
       </div>
       <div className="embed-plate">
-        <Orrery sectors={data.thesis.sectors} companies={data.companies} changes={data.changes} thesisName={data.thesis.name} compact />
+        <Orrery sectors={data.thesis.sectors} companies={data.companies} changes={data.changes} thesisName={data.thesis.name} editionDate={data.edition?.date} compact />
       </div>
       <CompanyTable companies={data.companies} sectors={data.thesis.sectors} />
     </main>

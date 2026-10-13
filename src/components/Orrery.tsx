@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Company, Sector } from "@/lib/types";
-import { month, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
+import { isRecent, month, raisedLabel, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
 
 /*
  * The orrery. One sun (the thesis), one orbit per sector, one planet riding
@@ -22,6 +22,7 @@ type Props = {
   companies: Company[];
   changes: Change[];
   thesisName: string;
+  editionDate?: string;
   hidden?: string[];
   compact?: boolean;
 };
@@ -31,7 +32,7 @@ type Hit = { kind: "moon" | "planet" | "exit"; x: number; y: number; r: number; 
 const INK = "#0F1B2D";
 const INK2 = "#37445A";
 const LINE = "rgba(15,27,45,0.16)";
-const BRASS = "#9C680A";
+const BRASS = "#85570A";
 const TEAL = "#17796F";
 const PAPER = "#EEF1F5";
 
@@ -46,11 +47,13 @@ function moonRadius(c: Company) {
 
 const NONE: string[] = [];
 
-export default function Orrery({ sectors, companies, changes, thesisName, hidden = NONE, compact = false }: Props) {
+export default function Orrery({ sectors, companies, changes, thesisName, editionDate, hidden = NONE, compact = false }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitsRef = useRef<Hit[]>([]);
   const clockRef = useRef<number | null>(null); // survives data changes so the intro plays once
+  const orbitRef = useRef(0);                    // orbital time, also survives data changes
+  const renderRef = useRef<(() => void) | null>(null); // on-demand render (reduced motion)
   const zoomRef = useRef({ target: null as string | null, last: null as string | null, k: 0 });
   const hoverRef = useRef<string | null>(null);
   const [hover, setHover] = useState<{ hit: Hit; x: number; y: number } | null>(null);
@@ -76,9 +79,11 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
   const visible = useMemo(() => companies.filter((c) => !hiddenSet.has(c.name.toLowerCase())), [companies, hiddenSet]);
   const live = useMemo(() => visible.filter((c) => c.status !== "exited" && c.status !== "shut_down"), [visible]);
   const exits = useMemo(() => visible.filter((c) => c.status === "exited"), [visible]);
+  // Pulse only rounds that are actually recent (within six weeks of the edition).
   const pulsing = useMemo(
-    () => new Set(changes.filter((ch) => ch.kind === "round").map((ch) => ch.company.toLowerCase())),
-    [changes],
+    () => new Set(changes.filter((ch) => ch.kind === "round" && isRecent(ch.date, editionDate))
+      .map((ch) => ch.company.toLowerCase())),
+    [changes, editionDate],
   );
   const travelling = useMemo(
     () => new Set(changes.filter((ch) => ch.kind === "exit").map((ch) => ch.company.toLowerCase())),
@@ -104,7 +109,10 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
       canvas.style.height = `${H}px`;
     };
     resize();
-    const ro = new ResizeObserver(resize);
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (reduce) renderRef.current?.();
+    });
     ro.observe(wrap);
 
     const n = sectors.length;
@@ -113,38 +121,38 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
     const exitHome = new Map(exits.map((c, i) => [c.name, (i / Math.max(1, exits.length)) * Math.PI * 2 + 2.2]));
 
     let raf = 0;
-    let running = true;
+    let inView = true;
+    let disposed = false;
     let last = performance.now();
     let clock = clockRef.current ?? (reduce ? 40 : 0); // seconds since load; reduced motion starts after the intro
-    let orbitTime = 0;           // drives orbital motion; frozen while zoomed
     const pathTrail: Record<string, { x: number; y: number }[]> = {};
 
-    const vis = new IntersectionObserver(([e]) => {
-      running = e.isIntersecting && !document.hidden;
-      if (running) {
-        last = performance.now();
-        raf = requestAnimationFrame(frame);
-      }
-    });
-    vis.observe(wrap);
-    const onVis = () => {
-      running = !document.hidden;
-      if (running) {
+    // One loop only: (re)start it when visible and the tab is showing; never stack a second.
+    const shouldRun = () => !disposed && !reduce && inView && !document.hidden;
+    const start = () => {
+      cancelAnimationFrame(raf);
+      if (shouldRun()) {
         last = performance.now();
         raf = requestAnimationFrame(frame);
       }
     };
+    const vis = new IntersectionObserver(([e]) => {
+      inView = e.isIntersecting;
+      start();
+    });
+    vis.observe(wrap);
+    const onVis = () => start();
     document.addEventListener("visibilitychange", onVis);
 
     function frame(now: number) {
-      if (!running || !ctx) return;
+      if (!shouldRun() || !ctx) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       clock += dt;
       clockRef.current = clock;
       const z = zoomRef.current;
       z.k += ((z.target ? 1 : 0) - z.k) * Math.min(1, dt * 4);
-      if (!reduce) orbitTime += dt * (1 - 0.92 * z.k);
+      orbitRef.current += dt * (1 - 0.92 * z.k);
       render();
       raf = requestAnimationFrame(frame);
     }
@@ -160,6 +168,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
 
     function render() {
       if (!ctx) return;
+      const orbitTime = orbitRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
 
@@ -220,7 +229,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
         if (p > 0) {
           ctx.save();
           ctx.setLineDash([2, 5]);
-          ctx.strokeStyle = `rgba(156,104,10,${0.55 * (1 - 0.6 * k)})`;
+          ctx.strokeStyle = `rgba(133,87,10,${0.55 * (1 - 0.6 * k)})`;
           ctx.beginPath();
           const steps = 200;
           for (let s = 0; s <= steps * p; s++) {
@@ -365,6 +374,12 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
                 ctx.arc(M.x, M.y, mr + 4, 0, Math.PI * 2);
                 ctx.stroke();
               }
+              const biggest = j === moons.reduce((bi, m, mi) => ((m.raisedUsdM || 0) > (moons[bi].raisedUsdM || 0) ? mi : bi), 0);
+              if (!labelFocus && !isHover && biggest && !narrow && k < 0.05 && t > 2.6 && (c.raisedUsdM || 0) > 0) {
+                ctx.font = "400 11px Onest, system-ui, sans-serif";
+                ctx.fillStyle = "rgba(55,68,90,0.8)";
+                label(c.name, M.x, M.y + 4, M.x > P.x, mr + (pulsing.has(c.name.toLowerCase()) ? 12 : 5));
+              }
               if (labelFocus || (focus == null && isHover)) {
                 ctx.font = `500 ${labelFocus ? 12.5 : 12}px Onest, system-ui, sans-serif`;
                 ctx.fillStyle = INK;
@@ -421,7 +436,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
                 for (let s = 1; s < trail.length; s++) {
                   const a = toScreen(trail[s - 1].x, trail[s - 1].y);
                   const b = toScreen(trail[s].x, trail[s].y);
-                  ctx.strokeStyle = `rgba(156,104,10,${(s / trail.length) * 0.6 * fade * dim})`;
+                  ctx.strokeStyle = `rgba(133,87,10,${(s / trail.length) * 0.6 * fade * dim})`;
                   ctx.lineWidth = 1.4;
                   ctx.beginPath();
                   ctx.moveTo(a.x, a.y);
@@ -458,10 +473,15 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
       hitsRef.current = hits;
     }
 
-    if (reduce) render();
-    raf = requestAnimationFrame(frame);
+    renderRef.current = render;
+    if (reduce) {
+      zoomRef.current.k = zoomRef.current.target ? 1 : 0;
+      render();
+    }
+    start();
     return () => {
-      running = false;
+      disposed = true;
+      renderRef.current = null;
       cancelAnimationFrame(raf);
       ro.disconnect();
       vis.disconnect();
@@ -472,6 +492,10 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
   useEffect(() => {
     zoomRef.current.target = zoomed;
     if (zoomed) zoomRef.current.last = zoomed;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      zoomRef.current.k = zoomed ? 1 : 0;
+      renderRef.current?.();
+    }
   }, [zoomed]);
 
   useEffect(() => draw(), [draw]);
@@ -503,7 +527,9 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
 
   const onMove = (e: React.PointerEvent) => {
     const p = pick(e.clientX, e.clientY);
+    const before = hoverRef.current;
     hoverRef.current = p?.hit.company?.name || null;
+    if (before !== hoverRef.current) renderRef.current && window.matchMedia("(prefers-reduced-motion: reduce)").matches && renderRef.current();
     setHover(p);
     if (canvasRef.current) canvasRef.current.style.cursor = p ? "pointer" : "default";
   };
@@ -557,9 +583,9 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
       {zoomSector && !compact && <p className="orrery-zoomnote">{zoomSector.description}</p>}
       <div className="orrery-key" aria-hidden>
         <span><i className="k-fill" />Size is capital raised</span>
-        <span><i className="k-ring" />Awaiting first check</span>
-        <span><i className="k-pulse" />New round this edition</span>
-        <span><i className="k-exit" />Exit</span>
+        {live.some((c) => c.verifiedBy === "pending") && <span><i className="k-ring" />Awaiting first check</span>}
+        {pulsing.size > 0 && <span><i className="k-pulse" />Round in the last six weeks</span>}
+        {exits.length > 0 && <span><i className="k-exit" />Agreed or completed exit</span>}
       </div>
       {hover && card && (
         <div
@@ -572,18 +598,18 @@ export default function Orrery({ sectors, companies, changes, thesisName, hidden
         >
           <p className="oc-name">{card.name}</p>
           <p className="oc-meta">
-            <span className="dot" style={{ background: card.status === "exited" ? "#9C680A" : sectorColor(sectors, card.sector) }} />
-            {card.status === "exited" ? "Exited" : cardSector?.name}
+            <span className="dot" style={{ background: card.status === "exited" ? "#85570A" : sectorColor(sectors, card.sector) }} />
+            {card.status === "exited" ? (card.exit?.state === "announced" ? "Being acquired" : "Exited") : cardSector?.name}
             {card.geo ? `, ${card.geo}` : ""}
           </p>
           <p className="oc-desc">{card.description}</p>
           <dl>
             {card.stage && <><dt>Stage</dt><dd>{card.stage}</dd></>}
-            {card.raised && <><dt>Raised</dt><dd>{card.raised}</dd></>}
+            {card.raised && <><dt>Raised</dt><dd>{raisedLabel(card)}{card.raisedBasis === "latest_round" ? " (latest round)" : ""}</dd></>}
             {card.lastRound?.amount && (
               <><dt>Last round</dt><dd>{card.lastRound.amount}{card.lastRound.date ? `, ${month(card.lastRound.date)}` : ""}</dd></>
             )}
-            {card.exit?.acquirer && <><dt>Acquirer</dt><dd>{card.exit.acquirer}{card.exit.date ? `, ${month(card.exit.date)}` : ""}</dd></>}
+            {card.exit?.acquirer && <><dt>Acquirer</dt><dd>{card.exit.acquirer}{card.exit.date ? `, ${month(card.exit.date)}` : ""}{card.exit.state === "announced" ? " (pending)" : ""}</dd></>}
             {card.status !== "tracking" && card.status !== "exited" && <><dt>Status</dt><dd>{STATUS_LABEL[card.status]}</dd></>}
           </dl>
           <p className="oc-check">

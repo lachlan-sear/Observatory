@@ -16,6 +16,13 @@ export default async function Page() {
   const active = companies.filter((c) => c.status !== "exited" && c.status !== "shut_down");
   const exits = companies.filter((c) => c.status === "exited");
   const capital = active.reduce((a, c) => a + (c.raisedUsdM || 0), 0);
+  const pendingExits = exits.filter((c) => c.exit?.state === "announced").length;
+  const cap = (n: number) => word(n).charAt(0).toUpperCase() + word(n).slice(1);
+  const exitSentence = exits.length === 0
+    ? "No exits yet."
+    : pendingExits === exits.length
+      ? `${cap(exits.length)} ${exits.length === 1 ? "has" : "have"} agreed to be acquired this year.`
+      : `${cap(exits.length)} exited or agreed to be acquired this year.`;
   const ranked = [...active].sort((a, b) => (b.raisedUsdM || 0) - (a.raisedUsdM || 0));
   const topTwo = ranked.slice(0, 2);
   const topShare = capital ? Math.round(((topTwo[0]?.raisedUsdM || 0) + (topTwo[1]?.raisedUsdM || 0)) / capital * 100) : 0;
@@ -49,19 +56,20 @@ export default async function Page() {
             <div className="hero-b">
               {rest && <p className="belief-more">{rest}</p>}
               <p className="ledger">
-                {active.length} companies across {word(thesis.sectors.length)} orbits, about {usd(capital)} raised between
-                them. {exits.length > 0 ? `${exits.length === 1 ? "One" : exits.length} exited this year.` : "No exits yet."}
+                {active.length} companies across {word(thesis.sectors.length)} orbits, at least {usd(capital)} raised between
+                them. {exitSentence}
               </p>
               {edition && (
                 <p className="stamp">
                   <span className={live ? "live" : "snap"} aria-hidden />
-                  Edition {edition.number}, {longDate(edition.date)}. Next check {longDate(nextMonday(edition.date))}.
+                  Edition {edition.number}, {longDate(edition.date)}.{" "}
+                  {edition.kind === "seed" ? "Checked by hand; weekly checks start once the scheduled run is switched on." : `Next check ${longDate(nextMonday(edition.date))}.`}
                   {!live && " Showing the bundled snapshot; the live data couldn't be reached."}
                 </p>
               )}
             </div>
             <div className="hero-plate">
-              <Orrery sectors={thesis.sectors} companies={companies} changes={data.changes} thesisName={thesis.name} />
+              <Orrery sectors={thesis.sectors} companies={companies} changes={data.changes} thesisName={thesis.name} editionDate={edition?.date} />
             </div>
           </div>
         </section>
@@ -92,7 +100,7 @@ export default async function Page() {
               <h2>Where the money sits</h2>
               <p>
                 {topTwo.length === 2
-                  ? `${topTwo[0].name} and ${topTwo[1].name} hold ${topShare}% of the capital on the map. The log scale keeps the seed and Series A companies, where the thesis is aimed, readable beside them.`
+                  ? `${topTwo[0].name} and ${topTwo[1].name} hold ${topShare}% of the capital recorded on the map. The log scale keeps the seed and Series A companies, where the thesis is aimed, readable beside them.`
                   : "Each dot is a company, placed by capital raised on a log scale."}
               </p>
             </div>
@@ -130,7 +138,7 @@ export default async function Page() {
                 </ul>
               </div>
             ) : (
-              <p className="fine radar-empty">Scout&apos;s first shortlist of new candidates arrives with the run on {longDate(nextMonday(edition?.date || data.generatedAt))}.</p>
+              <p className="fine radar-empty">Scout&apos;s first shortlist of new candidates arrives with the first scheduled run.</p>
             )}
           </div>
         </section>
@@ -139,19 +147,19 @@ export default async function Page() {
           <div className="wrap split">
             <div className="split-head">
               <h2>How it stays current</h2>
-              <p>Nothing on this page is typed in by hand after the first edition. The model proposes; the source decides.</p>
+              <p>The model proposes; the source decides. A change is applied only when the page it cites says so, and anything else waits for me to check.</p>
             </div>
             <Method data={data} />
           </div>
           <div className="wrap split">
             <div className="split-head">
-              <h3>Run it on your thesis</h3>
+              <h3>Make your own map</h3>
             </div>
             <div className="fork">
               <p>
-                Fork the engine, add a model key as a repository secret (Anthropic, OpenAI or OpenRouter), rewrite <code>config/thesis.yaml</code>{" "}
-                with your orbits, rubric and portfolio to hide, and turn on the weekly workflow. Point a copy of this page at
-                your fork&apos;s <code>data/observatory.json</code> and it draws your map.
+                Everything here comes from one file of interests. If you&apos;d like a map of your own, fork the engine,
+                add a model key (Anthropic, OpenAI or OpenRouter), rewrite <code>config/thesis.yaml</code> with your own
+                orbits, and point a copy of this page at your fork&apos;s <code>data/observatory.json</code>.
               </p>
               <p><a href={ENGINE_URL}>thesis-agent on GitHub</a></p>
             </div>

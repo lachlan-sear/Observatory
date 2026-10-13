@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Company, Sector } from "@/lib/types";
-import { domain, month, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
+import { domain, month, raisedLabel, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
 
 type Key = "name" | "sector" | "stage" | "raised" | "last" | "geo" | "checked";
 const STAGE_ORDER = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Series D", "Series E", "Series F",
@@ -65,7 +65,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
           {[{ id: "all", short: "All" }, ...sectors, { id: "exited", short: "Exits" }].map((s) => (
             <button key={s.id} type="button" aria-pressed={sector === s.id} onClick={() => setSector(s.id)}>
               {s.id !== "all" && (
-                <span className="dot" style={{ background: s.id === "exited" ? "#9C680A" : sectorColor(sectors, s.id) }} aria-hidden />
+                <span className="dot" style={{ background: s.id === "exited" ? "#85570A" : sectorColor(sectors, s.id) }} aria-hidden />
               )}
               {"short" in s ? s.short : ""}
             </button>
@@ -92,7 +92,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
           <tbody>
             {rows.map((c) => {
               const ev = c.exit?.acquirer
-                ? { text: `Acquired by ${c.exit.acquirer}`, date: c.exit.date, src: c.exit.source }
+                ? { text: `${c.exit.state === "announced" ? "Agreed sale to" : "Acquired by"} ${c.exit.acquirer}`, date: c.exit.date, src: c.exit.source }
                 : c.lastRound?.amount
                 ? { text: `${c.lastRound.amount}${c.lastRound.round ? ` ${c.lastRound.round}` : ""}`, date: c.lastRound.date, src: c.lastRound.source }
                 : null;
@@ -101,7 +101,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
                 <tr key={c.id} className={isOpen ? "open" : ""}>
                   <td className="co">
                     <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : c.id)}>
-                      <span className="dot" style={{ background: c.status === "exited" ? "#9C680A" : sectorColor(sectors, c.sector) }} aria-hidden />
+                      <span className="dot" style={{ background: c.status === "exited" ? "#85570A" : sectorColor(sectors, c.sector) }} aria-hidden />
                       <span className="co-name">{c.name}</span>
                     </button>
                     <span className="co-desc">{c.description}</span>
@@ -109,7 +109,8 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
                       <div className="co-more">
                         {c.note && <p>{c.note}</p>}
                         {c.investors?.length > 0 && <p><span className="lbl">Investors</span> {c.investors.join(", ")}</p>}
-                        {c.status !== "tracking" && <p><span className="lbl">Status</span> {STATUS_LABEL[c.status]}</p>}
+                        {c.aliases && c.aliases.length > 0 && <p><span className="lbl">Also known as</span> {c.aliases.join(", ")}</p>}
+                        {c.status !== "tracking" && <p><span className="lbl">Status</span> {c.status === "exited" && c.exit?.state === "announced" ? "Being acquired" : STATUS_LABEL[c.status]}</p>}
                         <p>
                           {c.website && <a href={c.website} target="_blank" rel="noreferrer">{domain(c.website)}</a>}
                           {c.writeUp && <> <a href={c.writeUp} target="_blank" rel="noreferrer">My write-up</a></>}
@@ -122,7 +123,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
                   </td>
                   <td className="hide-s">{sectors.find((s) => s.id === c.sector)?.short}</td>
                   <td>{c.stage || <span className="muted">Not yet checked</span>}</td>
-                  <td className="num">{c.raised || <span className="muted">–</span>}</td>
+                  <td className="num" title={c.raisedBasis === "latest_round" ? "Latest round only; earlier rounds not yet totalled" : c.raisedBasis === "estimate" ? "Estimate" : undefined}>{c.raised ? raisedLabel(c) : <span className="muted">–</span>}</td>
                   <td className="hide-s">
                     {ev ? (
                       <>
