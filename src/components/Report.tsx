@@ -4,50 +4,73 @@ import { domain, longDate, month, nextMonday, sectorColor, shortDate, usd } from
 /* ---------- Money: one row per orbit, each company a dot on a log scale ---------- */
 
 export function MoneyStrip({ companies, sectors }: { companies: Company[]; sectors: Sector[] }) {
-  const W = 1000, rowH = 66, padL = 170, padR = 30, top = 26;
-  const H = top + rowH * sectors.length + 34;
+  const W = 1000, padL = 170, padR = 30, top = 20;
   const min = 1, max = 3000;
   const x = (m: number) => padL + ((Math.log10(Math.max(min, m)) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * (W - padL - padR);
   const ticks = [1, 10, 100, 1000];
+  // Label every company: lanes above and below the line, first lane that has room.
+  const LANES = [-14, 26, -34, 46, -54, 66];
+  const charW = 7.4;
+  const rows = sectors.map((s) => {
+    const list = companies
+      .filter((c) => c.sector === s.id && c.raisedUsdM)
+      .sort((a, b) => (a.raisedUsdM || 0) - (b.raisedUsdM || 0));
+    const used: [number, number][][] = LANES.map(() => []);
+    const placed = list.map((c) => {
+      const cx = x(c.raisedUsdM!);
+      const w = c.name.length * charW;
+      let lx = Math.min(Math.max(cx, padL + w / 2), W - padR - w / 2 + 20);
+      let lane = 0;
+      for (; lane < LANES.length; lane++) {
+        const [l, r] = [lx - w / 2 - 6, lx + w / 2 + 6];
+        if (!used[lane].some(([a, b]) => l < b && r > a)) break;
+      }
+      if (lane === LANES.length) { lane = LANES.length - 1; lx = cx; }
+      used[lane].push([lx - w / 2 - 6, lx + w / 2 + 6]);
+      return { c, cx, lx, lane };
+    });
+    const lanesUsed = Math.max(0, ...placed.map((p) => p.lane));
+    const above = Math.max(18, ...placed.filter((p) => LANES[p.lane] < 0).map((p) => -LANES[p.lane] + 14));
+    const below = Math.max(26, ...placed.filter((p) => LANES[p.lane] > 0).map((p) => LANES[p.lane] + 6));
+    return { s, placed, above, below, lanesUsed,
+      pending: companies.filter((c) => c.sector === s.id && !c.raisedUsdM && c.status !== "exited").length };
+  });
+  let y = top;
+  const layout = rows.map((r) => { const cy = y + r.above; y = cy + r.below + 14; return { ...r, cy }; });
+  const H = y + 24;
   return (
     <figure className="money">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Capital raised per company by orbit, on a logarithmic scale from one million to three billion dollars">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={top - 6} y2={H - 28} className="grid" />
-            <text x={x(t)} y={H - 10} textAnchor="middle" className="tick">{t >= 1000 ? `$${t / 1000}B` : `$${t}M`}</text>
+            <text x={x(t)} y={H - 8} textAnchor="middle" className="tick">{t >= 1000 ? `$${t / 1000}B` : `$${t}M`}</text>
           </g>
         ))}
-        {sectors.map((s, i) => {
-          const cy = top + rowH * i + rowH / 2;
-          const rows = companies.filter((c) => c.sector === s.id && c.raisedUsdM);
-          const sorted = [...rows].sort((a, b) => (b.raisedUsdM || 0) - (a.raisedUsdM || 0));
-          const labelled = new Set(sorted.slice(0, 2).map((c) => c.name));
-          const pending = companies.filter((c) => c.sector === s.id && !c.raisedUsdM && c.status !== "exited").length;
-          return (
-            <g key={s.id}>
-              <text x={0} y={cy + 4} className="row-label">{s.short}</text>
-              {pending > 0 && <text x={0} y={cy + 20} className="row-sub">{pending} awaiting figures</text>}
-              <line x1={padL} x2={W - padR} y1={cy} y2={cy} className="baseline" />
-              {rows.map((c, j) => {
-                const exited = c.status === "exited";
-                const jitter = ((j % 3) - 1) * 8;
-                return (
-                  <g key={c.name}>
-                    <circle cx={x(c.raisedUsdM!)} cy={cy + jitter} r={exited ? 6.5 : 6} fill={exited ? "#9C680A" : sectorColor(sectors, s.id)} stroke="#EEF1F5" strokeWidth={1.5}>
-                      <title>{`${c.name}: ${c.raised} raised${exited ? " (exited)" : ""}`}</title>
-                    </circle>
-                    {labelled.has(c.name) && (
-                      <text x={x(c.raisedUsdM!)} y={cy + jitter - 12} textAnchor="middle" className="dot-label">{c.name}</text>
-                    )}
-                  </g>
-                );
-              })}
-            </g>
-          );
-        })}
+        {layout.map(({ s, placed, cy, pending }) => (
+          <g key={s.id}>
+            <text x={0} y={cy + 5} className="row-label">{s.short}</text>
+            {pending > 0 && <text x={0} y={cy + 22} className="row-sub">{pending} without figures</text>}
+            <line x1={padL} x2={W - padR} y1={cy} y2={cy} className="baseline" />
+            {placed.map(({ c, cx, lx, lane }) => {
+              const exited = c.status === "exited";
+              const dy = LANES[lane];
+              return (
+                <g key={c.name}>
+                  {(Math.abs(dy) > 26 || Math.abs(lx - cx) > 4) && (
+                    <line x1={cx} y1={cy + (dy < 0 ? -6 : 6)} x2={lx} y2={cy + dy + (dy < 0 ? 4 : -12)} className="leader" />
+                  )}
+                  <circle cx={cx} cy={cy} r={exited ? 6.5 : 6} fill={exited ? "#9C680A" : sectorColor(sectors, s.id)} stroke="#EEF1F5" strokeWidth={1.5}>
+                    <title>{`${c.name}: ${c.raised} raised${exited ? " (exited)" : ""}`}</title>
+                  </circle>
+                  <text x={lx} y={cy + dy} textAnchor="middle" className={exited ? "dot-label exited" : "dot-label"}>{c.name}</text>
+                </g>
+              );
+            })}
+          </g>
+        ))}
       </svg>
-      <figcaption>Total disclosed capital raised, converted to dollars at approximate rates for placement only. Hover a dot for the figure as reported.</figcaption>
+      <figcaption>Total disclosed capital raised, converted to dollars at approximate rates for placement only; a figure marked + is the latest round alone. Hover a dot for the figure as reported.</figcaption>
     </figure>
   );
 }

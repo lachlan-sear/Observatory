@@ -137,14 +137,17 @@ code { font: 500 0.9em/1 ui-monospace, Menlo, monospace; background: var(--line-
 .orbit .orbit-names { font-size: 13.5px; color: var(--muted); }
 
 /* Money strip */
-.money { margin: 0; }
+.money { margin: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.money svg { min-width: 720px; }
 .money svg { width: 100%; height: auto; overflow: visible; }
 .money .grid { stroke: var(--line-soft); }
 .money .baseline { stroke: var(--line); }
 .money .tick { font: 400 15px var(--sans); fill: var(--muted); }
 .money .row-label { font: 500 18px var(--serif); fill: var(--ink); }
 .money .row-sub { font: 400 13.5px var(--sans); fill: var(--muted); }
-.money .dot-label { font: 500 14px var(--sans); fill: var(--ink-2); }
+.money .dot-label { font: 500 13px var(--sans); fill: var(--ink-2); }
+.money .dot-label.exited { fill: var(--brass); }
+.money .leader { stroke: var(--line); stroke-width: 1; }
 .money figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
 /* Where */
