@@ -149,7 +149,7 @@ export default async function Page() {
             </div>
             <div className="fork">
               <p>
-                Fork the engine, add an Anthropic API key as a repository secret, rewrite <code>config/thesis.yaml</code>{" "}
+                Fork the engine, add a model key as a repository secret (Anthropic, OpenAI or OpenRouter), rewrite <code>config/thesis.yaml</code>{" "}
                 with your orbits, rubric and portfolio to hide, and turn on the weekly workflow. Point a copy of this page at
                 your fork&apos;s <code>data/observatory.json</code> and it draws your map.
               </p>
