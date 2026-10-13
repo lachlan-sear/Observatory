@@ -1,40 +1,61 @@
 # The Observatory
 
-A live, interactive solar system mapping companies across European and US venture — built to visualise deal flow the way an investor actually thinks about it.
+A map of the companies in an investment thesis, drawn as an orrery and kept
+current by [thesis-agent](https://github.com/lachlan-sear/thesis-agent)'s
+weekly run. **[observatory.lachlansear.com](https://observatory.lachlansear.com)**
 
-**[→ observatory.lachlansear.com](https://observatory.lachlansear.com)**
+- **The sun** is the thesis. Each **orbit** is a sector named in the thesis
+  file, and each **planet** carries its companies as moons.
+- **Moon size** is capital raised, on a log scale. A hollow moon is a company
+  awaiting its first check.
+- **A teal pulse** marks a round recorded in this edition.
+- **The brass ring** holds exits. A company that exited this edition travels
+  there from its sector on load.
+- Below the map: this edition's changes (each linked to its source), the
+  orbits, where the money sits, where the companies are built, exits, a
+  sortable list of every company, the method, and the archive of editions.
 
----
+## Data
 
-## What This Is
+The page reads one file, `data/observatory.json`, published by thesis-agent.
+It revalidates hourly, so a Monday run shows up within the hour without a
+redeploy. If the fetch fails, it serves `src/data/snapshot.json` and says so
+on the page.
 
-The Observatory is a Three.js visualisation that renders my deal flow tracker as a solar system. Each planet represents a sector — Vertical AI, Horizontal AI, AI Infrastructure, Deep Tech & Defence — and the companies I'm tracking orbit as moons. Benchmark-tier companies glow gold. Click a planet to zoom into a vertical. Click a moon to see the company.
+| Env var | Purpose |
+|---|---|
+| `OBSERVATORY_DATA_URL` | Where to read `observatory.json`. Default: the reference instance through the GitHub contents API. A raw GitHub URL also works. |
+| `OBSERVATORY_DATA_TOKEN` | Read-only GitHub token. Only needed while the engine repo is private. |
+| `OBSERVATORY_FRAME_ANCESTORS` | Sites allowed to frame `/embed`. Default: lachlanbuilds.com. |
+| `NEXT_PUBLIC_ENGINE_URL` | The engine link in "Run it on your thesis". |
 
-The data is pulled live from a separate tracker API, so the Observatory updates automatically whenever the underlying pipeline changes. One source of truth, two interfaces — a sortable table for analysis, a solar system for pattern recognition.
+To run it for your own fund, set `OBSERVATORY_DATA_URL` to your fork's file.
+Nothing in the code is specific to one thesis.
 
-## Why I Built It
+## Embedding (the desks)
 
-Most deal flow trackers are spreadsheets. They're useful for sorting and filtering but they flatten the landscape into rows. You lose the shape of the market — which verticals are crowded, where the gaps are, how companies cluster geographically.
+`/embed` shows the orrery and the company list with no page chrome. It may be
+framed only by the hosts in `OBSERVATORY_FRAME_ANCESTORS`. A host page can
+hide a reader's own portfolio in either of two ways:
 
-The Observatory exists to see the landscape rather than just read it. It's the visual layer over a thesis I've been developing on vertical AI in regulated industries — the argument that the same AI problem recurs across healthcare, legal, dental, and veterinary, and that domain expertise and regulatory complexity create moats that horizontal wrappers can't replicate.
+```html
+<iframe src="https://observatory.lachlansear.com/embed?hide=Neuracore,Lovable"></iframe>
+<script>
+  frame.contentWindow.postMessage({ type: "observatory:hide", names: ["Neuracore"] }, "*");
+</script>
+```
 
-## The Thesis
+`/api/observatory` returns the same JSON, with CORS open.
 
-**Same Problem, Different Waiting Room** — vertical AI companies win in regulated industries not through better models, but through deeper domain integration, proprietary data flywheels, and the compliance burden that keeps generalist competitors out.
+## Develop
 
-→ [Read the full thesis on lachlansear.com](https://lachlansear.com/same-problem-different-waiting-room)
+```bash
+npm ci
+npm run dev        # http://localhost:3000
+npm run build
+```
 
-## Architecture
-
-- **Frontend**: Next.js, Three.js, deployed on Vercel
-- **Data**: Fetched at runtime from a public API endpoint on the tracker
-- **Design system**: Lora serif headings, IBM Plex Sans body, dark space aesthetic with gold (#D4A574) for Benchmark-tier companies
-
-## Related
-
-- [lachlansear.com](https://lachlansear.com) — Investment writing, case studies, thesis development
-- [tracker.lachlansear.com](https://tracker.lachlansear.com) — Full deal flow tracker (access on request)
-
----
-
-Built by [Lachlan Sear](https://www.linkedin.com/in/lachlan-sear-41b84b131/).
+Next.js 16 (App Router), React 19 and a 2D canvas, with no chart or 3D
+libraries. The type is Newsreader and Onest, and the colour tokens match the
+desks. Motion follows `prefers-reduced-motion`, and the animation pauses
+off-screen and in background tabs.
