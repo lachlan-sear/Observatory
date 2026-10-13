@@ -24,8 +24,8 @@ on the page.
 
 | Env var | Purpose |
 |---|---|
-| `OBSERVATORY_DATA_URL` | Where to read `observatory.json`. Default: the reference instance through the GitHub contents API. A raw GitHub URL also works. |
-| `OBSERVATORY_DATA_TOKEN` | Read-only GitHub token. Only needed while the engine repo is private. |
+| `OBSERVATORY_DATA_URL` | Where to read `observatory.json`. Default: the reference instance's raw GitHub URL. |
+| `OBSERVATORY_DATA_TOKEN` | Read-only GitHub token. Only needed if your engine repo is private. |
 | `OBSERVATORY_FRAME_ANCESTORS` | Sites allowed to frame `/embed`. Default: lachlanbuilds.com. |
 | `NEXT_PUBLIC_ENGINE_URL` | The engine link in "Run it on your thesis". |
 

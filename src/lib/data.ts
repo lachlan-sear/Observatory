@@ -5,15 +5,15 @@ import type { ObservatoryData } from "./types";
 /**
  * The Observatory draws whatever thesis-agent publishes.
  *
- * OBSERVATORY_DATA_URL  where data/observatory.json lives. A raw GitHub URL or the
- *                       GitHub contents API URL of your fork; defaults to the reference instance.
- * OBSERVATORY_DATA_TOKEN read-only token, only needed while the engine repo is private.
+ * OBSERVATORY_DATA_URL  where data/observatory.json lives: your fork's raw GitHub URL
+ *                       (or its contents-API URL). Defaults to the reference instance.
+ * OBSERVATORY_DATA_TOKEN read-only token, only needed if your engine repo is private.
  *
  * The page revalidates hourly, so a Monday run appears within the hour without a
  * redeploy. If the fetch fails, the bundled snapshot is served and the page says so.
  */
-const DEFAULT_URL =
-  "https://api.github.com/repos/lachlan-sear/thesis-agent/contents/data/observatory.json?ref=main";
+// raw.githubusercontent.com has no API rate limit, which matters on shared hosting IPs.
+const DEFAULT_URL = "https://raw.githubusercontent.com/lachlan-sear/Thesis-Agent/main/data/observatory.json";
 
 export const REVALIDATE_SECONDS = 3600;
 
