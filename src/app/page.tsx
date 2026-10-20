@@ -2,7 +2,9 @@ import Orrery from "@/components/Orrery";
 import CompanyTable from "@/components/CompanyTable";
 import { Editions, Exits, Method, MoneyStrip, Orbits, ThisEdition, Where } from "@/components/Report";
 import { getObservatory } from "@/lib/data";
+import { sectorStyles } from "@/lib/format";
 import { longDate, nextMonday, usd } from "@/lib/format";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 export const revalidate = 3600;
 
@@ -31,6 +33,7 @@ export default async function Page() {
 
   return (
     <>
+      <style dangerouslySetInnerHTML={{ __html: sectorStyles(data.thesis.sectors) }} />
       <a className="skip" href="#companies">Skip to the company list</a>
       <header className="topbar">
         <div className="wrap topbar-in">
@@ -42,6 +45,7 @@ export default async function Page() {
             <a href="#companies">Companies</a>
             <a href="#method">Method</a>
           </nav>
+          <ThemeSwitch />
         </div>
       </header>
 
@@ -161,7 +165,7 @@ export default async function Page() {
                 add a model key (Anthropic, OpenAI or OpenRouter), rewrite <code>config/thesis.yaml</code> with your own
                 orbits, and point a copy of this page at your fork&apos;s <code>data/observatory.json</code>.
               </p>
-              <p><a href={ENGINE_URL}>thesis-agent on GitHub</a></p>
+              <p><a className="primary" href={ENGINE_URL}>thesis-agent on GitHub</a></p>
             </div>
           </div>
           <div className="wrap split">
@@ -176,6 +180,7 @@ export default async function Page() {
       <footer className="foot">
         <div className="wrap foot-in">
           <p>Built by <a href="https://www.linkedin.com/in/lachlan-sear-41b84b131/">Lachlan Sear</a>. Figures are public reports, linked at source; nothing here is investment advice.</p>
+          <ThemeSwitch />
         </div>
       </footer>
     </>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Company, Sector } from "@/lib/types";
-import { isRecent, month, raisedLabel, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
+import { isRecent, month, raisedLabel, sectorColor, sectorPalette, sectorVar, shortDate, STATUS_LABEL } from "@/lib/format";
 
 /*
  * The orrery. One sun (the thesis), one orbit per sector, one planet riding
@@ -29,12 +29,32 @@ type Props = {
 
 type Hit = { kind: "moon" | "planet" | "exit"; x: number; y: number; r: number; company?: Company; sector?: Sector };
 
-const INK = "#0F1B2D";
-const INK2 = "#37445A";
-const LINE = "rgba(15,27,45,0.16)";
-const BRASS = "#85570A";
-const TEAL = "#17796F";
-const PAPER = "#EEF1F5";
+/* The canvas reads its colours and faces from the page's CSS variables, so the
+   theme switch restyles the plate as well as the page. */
+type Palette = {
+  theme: string; ink: string; ink2: string; line: string; brass: string; teal: string; paper: string;
+  gargantua: string; label: string; title: string; titleCase: (s: string) => string; dark: boolean;
+};
+function readPalette(): Palette {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (n: string, f: string) => cs.getPropertyValue(n).trim() || f;
+  const theme = document.documentElement.dataset.theme || "paper";
+  const mission = theme !== "paper";
+  return {
+    theme,
+    ink: v("--ink", "#0F1B2D"),
+    ink2: v("--ink-2", "#37445A"),
+    line: v("--line", "#C9D1DC"),
+    brass: v("--brass", "#85570A"),
+    teal: v("--teal", "#17796F"),
+    paper: v("--paper", "#EEF1F5"),
+    gargantua: v("--gargantua", "#f2d8a7"),
+    label: mission ? "Inter, system-ui, sans-serif" : "Onest, system-ui, sans-serif",
+    title: mission ? "Jost, Futura, sans-serif" : "Newsreader, Georgia, serif",
+    titleCase: mission ? (x: string) => x.toUpperCase() : (x: string) => x,
+    dark: theme === "deepspace",
+  };
+}
 
 
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
@@ -54,6 +74,13 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
   const clockRef = useRef<number | null>(null); // survives data changes so the intro plays once
   const orbitRef = useRef(0);                    // orbital time, also survives data changes
   const renderRef = useRef<(() => void) | null>(null); // on-demand render (reduced motion)
+  const palRef = useRef<Palette | null>(null);
+  const [themeTick, setThemeTick] = useState(0);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setThemeTick((n) => n + 1));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
   const zoomRef = useRef({ target: null as string | null, last: null as string | null, k: 0 });
   const hoverRef = useRef<string | null>(null);
   const [hover, setHover] = useState<{ hit: Hit; x: number; y: number } | null>(null);
@@ -98,6 +125,14 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
     if (!ctx) return () => {};
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const pal = (palRef.current = readPalette());
+    const col = (id: string) => sectorPalette(sectorColor(sectors, id), pal.theme);
+    // A fixed field of stars for the night theme: seeded, static, drawn once per frame, never twinkling.
+    const stars = Array.from({ length: 140 }, (_, i) => {
+      const r = Math.sin(i * 12.9898) * 43758.5453;
+      const r2 = Math.sin(i * 78.233) * 12543.123;
+      return { x: r - Math.floor(r), y: r2 - Math.floor(r2), a: 0.15 + ((i * 37) % 10) / 22, s: i % 9 === 0 ? 1.3 : 0.7 };
+    });
     let W = 0, H = 0, dpr = 1;
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -171,6 +206,14 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
       const orbitTime = orbitRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
+      if (pal.dark) {
+        ctx.fillStyle = "#f5f5f7";
+        for (const st of stars) {
+          ctx.globalAlpha = st.a * 0.55;
+          ctx.fillRect(st.x * W, st.y * H, st.s, st.s);
+        }
+        ctx.globalAlpha = 1;
+      }
 
       const narrow = W < 600;
       const TILT = narrow ? 0.8 : 0.56;   // nearer top-down on phones, where width is scarce
@@ -212,7 +255,8 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
         const p = orbitsIn(i);
         if (p <= 0) continue;
         const dim = focus && focus.i !== i ? 1 - 0.65 * k : 1;
-        ctx.strokeStyle = `rgba(15,27,45,${0.16 * dim})`;
+        ctx.strokeStyle = pal.line;
+        ctx.globalAlpha = dim;
         ctx.beginPath();
         const steps = 160;
         for (let s = 0; s <= steps * p; s++) {
@@ -223,13 +267,15 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
         }
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
       // Exits ring: brass, dashed
       {
         const p = orbitsIn(n);
         if (p > 0) {
           ctx.save();
           ctx.setLineDash([2, 5]);
-          ctx.strokeStyle = `rgba(133,87,10,${0.55 * (1 - 0.6 * k)})`;
+          ctx.strokeStyle = pal.brass;
+          ctx.globalAlpha = 0.6 * (1 - 0.6 * k);
           ctx.beginPath();
           const steps = 200;
           for (let s = 0; s <= steps * p; s++) {
@@ -240,10 +286,11 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
           }
           ctx.stroke();
           ctx.restore();
+          ctx.globalAlpha = 1;
           if (p >= 1 && !focus) {
             const q = toScreen(cx + exitRx * Math.cos(-0.55), cy + exitRx * TILT * Math.sin(-0.55));
-            ctx.font = "500 12px Onest, system-ui, sans-serif";
-            ctx.fillStyle = BRASS;
+            ctx.font = `500 12px ${pal.label}`;
+            ctx.fillStyle = pal.brass;
             label(`Exits ${exits.length}`, q.x, q.y - 6, true, 8);
           }
         }
@@ -254,19 +301,53 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
         const q = toScreen(cx, cy);
         const a = ease(clamp01(t / 0.6));
         ctx.globalAlpha = a * (1 - 0.6 * k);
-        ctx.fillStyle = INK;
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, 5.5 * Math.min(scale, 1.6), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = LINE;
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, 14 * Math.min(scale, 1.6), 0, Math.PI * 2);
-        ctx.stroke();
+        const sc = Math.min(scale, 1.6);
+        if (pal.theme !== "paper") {
+          // Gargantua: a black hole with its accretion light, the one light source on the screen.
+          const R = (narrow ? 10 : 12.5) * sc;
+          const g = ctx.createRadialGradient(q.x, q.y, R * 0.9, q.x, q.y, R * 2.6);
+          g.addColorStop(0, pal.gargantua);
+          g.addColorStop(0.18, pal.gargantua);
+          g.addColorStop(1, "rgba(242,216,167,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, R * 2.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = pal.gargantua;
+          ctx.lineWidth = 2.2 * sc;
+          ctx.beginPath();
+          ctx.ellipse(q.x, q.y, R * 2.3, R * 0.42, -0.08, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, R, 0, Math.PI * 2);
+          ctx.fill();
+          // the near side of the disc crosses in front of the hole
+          ctx.strokeStyle = pal.gargantua;
+          ctx.lineWidth = 2.2 * sc;
+          ctx.beginPath();
+          ctx.ellipse(q.x, q.y, R * 2.3, R * 0.42, -0.08, 0.05 * Math.PI, 0.95 * Math.PI);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        } else {
+          ctx.fillStyle = pal.ink;
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, 5.5 * sc, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = pal.line;
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, 14 * sc, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         if (!focus && !narrow) {
-          ctx.font = `400 ${compact ? 14 : 16}px Newsreader, Georgia, serif`;
-          ctx.fillStyle = INK;
+          const mission = pal.theme !== "paper";
+          ctx.font = mission ? `400 ${compact ? 12 : 13}px ${pal.title}` : `400 ${compact ? 14 : 16}px ${pal.title}`;
+          if (mission && "letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0.32em";
+          ctx.fillStyle = pal.ink;
           ctx.textAlign = "center";
-          ctx.fillText(thesisName, q.x, q.y + 34);
+          ctx.fillText(pal.titleCase(thesisName), q.x, q.y + (mission ? 44 : 34));
+          if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
         }
         ctx.globalAlpha = 1;
       }
@@ -276,7 +357,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
       const queue: D[] = [];
 
       planets.forEach((pl) => {
-        const color = sectorColor(sectors, pl.s.id);
+        const color = col(pl.s.id);
         const appear = planetsIn(pl.i);
         if (appear <= 0) return;
         const dim = focus && focus.i !== pl.i ? 1 - 0.78 * k : 1;
@@ -302,21 +383,23 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
             ctx.beginPath();
             ctx.arc(P.x, P.y, pr, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = PAPER;
+            ctx.strokeStyle = pal.paper;
             ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.lineWidth = 1;
             hits.push({ kind: "planet", x: P.x, y: P.y, r: pr + 6, sector: pl.s });
             // moon orbit (local)
-            ctx.strokeStyle = `rgba(15,27,45,${0.09})`;
+            ctx.strokeStyle = pal.line;
+            ctx.globalAlpha = dim * appear * 0.6;
             ctx.beginPath();
             ctx.ellipse(P.x, P.y, localR * scale, localR * 0.7 * scale, 0, 0, Math.PI * 2);
             ctx.stroke();
             // label
             const labelFocus = !!focus && focus.i === pl.i && k > 0.5;
             if (!labelFocus) {
-              ctx.font = `500 ${compact ? 11.5 : 12.5}px Onest, system-ui, sans-serif`;
-              ctx.fillStyle = INK2;
+              ctx.globalAlpha = dim * appear;
+              ctx.font = `500 ${compact ? 11.5 : 12.5}px ${pal.label}`;
+              ctx.fillStyle = pal.ink2;
               ctx.textAlign = "center";
               ctx.fillText(`${pl.s.short || pl.s.name}  ${moons.length}`, P.x, P.y - localR * 0.7 * scale - 10);
             }
@@ -352,7 +435,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
                 ctx.stroke();
               }
               if (isHover) {
-                ctx.strokeStyle = INK;
+                ctx.strokeStyle = pal.ink;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.arc(M.x, M.y, mr + 4.5, 0, Math.PI * 2);
@@ -362,37 +445,39 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
               // pulse for this edition's rounds
               if (!reduce && pulsing.has(c.name.toLowerCase()) && t > 3.2) {
                 const cyc = ((t - 3.2 + j * 0.37) % 2.8) / 2.8;
-                ctx.strokeStyle = `rgba(23,121,111,${0.7 * (1 - cyc) * dim})`;
+                ctx.strokeStyle = pal.teal;
+                ctx.globalAlpha = 0.75 * (1 - cyc) * dim;
                 ctx.lineWidth = 1.4;
                 ctx.beginPath();
                 ctx.arc(M.x, M.y, mr + 2 + cyc * 18, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.lineWidth = 1;
+                ctx.globalAlpha = dim * ma;
               } else if (reduce && pulsing.has(c.name.toLowerCase())) {
-                ctx.strokeStyle = TEAL;
+                ctx.strokeStyle = pal.teal;
                 ctx.beginPath();
                 ctx.arc(M.x, M.y, mr + 4, 0, Math.PI * 2);
                 ctx.stroke();
               }
               const biggest = j === moons.reduce((bi, m, mi) => ((m.raisedUsdM || 0) > (moons[bi].raisedUsdM || 0) ? mi : bi), 0);
               if (!labelFocus && !isHover && biggest && !narrow && k < 0.05 && t > 2.6 && (c.raisedUsdM || 0) > 0) {
-                ctx.font = "400 11px Onest, system-ui, sans-serif";
-                ctx.fillStyle = "rgba(55,68,90,0.8)";
+                ctx.font = `400 11px ${pal.label}`;
+                ctx.fillStyle = pal.ink2;
                 label(c.name, M.x, M.y + 4, M.x > P.x, mr + (pulsing.has(c.name.toLowerCase()) ? 12 : 5));
               }
               if (labelFocus || (focus == null && isHover)) {
-                ctx.font = `500 ${labelFocus ? 12.5 : 12}px Onest, system-ui, sans-serif`;
-                ctx.fillStyle = INK;
+                ctx.font = `500 ${labelFocus ? 12.5 : 12}px ${pal.label}`;
+                ctx.fillStyle = pal.ink;
                 label(c.name, M.x, M.y + 4, M.x > P.x, mr + 6);
               }
               hits.push({ kind: "moon", x: M.x, y: M.y, r: Math.max(mr, 4) + 5, company: c, sector: pl.s });
               ctx.globalAlpha = 1;
             });
             if (labelFocus) {
-              ctx.font = "500 15px Newsreader, Georgia, serif";
-              ctx.fillStyle = INK;
+              ctx.font = `500 15px ${pal.title}`;
+              ctx.fillStyle = pal.ink;
               ctx.textAlign = "center";
-              ctx.fillText(pl.s.name, P.x, P.y - localR * 0.7 * scale - 18);
+              ctx.fillText(pal.titleCase(pl.s.name), P.x, P.y - localR * 0.7 * scale - 18);
             }
             ctx.globalAlpha = 1;
           },
@@ -436,7 +521,8 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
                 for (let s = 1; s < trail.length; s++) {
                   const a = toScreen(trail[s - 1].x, trail[s - 1].y);
                   const b = toScreen(trail[s].x, trail[s].y);
-                  ctx.strokeStyle = `rgba(133,87,10,${(s / trail.length) * 0.6 * fade * dim})`;
+                  ctx.strokeStyle = pal.brass;
+                  ctx.globalAlpha = (s / trail.length) * 0.6 * fade * dim;
                   ctx.lineWidth = 1.4;
                   ctx.beginPath();
                   ctx.moveTo(a.x, a.y);
@@ -449,18 +535,18 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
             const E = toScreen(x, y);
             const r = moonRadius(c) + 0.5;
             ctx.globalAlpha = dim;
-            ctx.fillStyle = BRASS;
+            ctx.fillStyle = pal.brass;
             ctx.beginPath();
             ctx.arc(E.x, E.y, r, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = PAPER;
+            ctx.strokeStyle = pal.paper;
             ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.lineWidth = 1;
             if (prog >= 1 && !focus) {
               const name = c.exit?.acquirer ? `${c.name} → ${c.exit.acquirer}` : c.name;
-              ctx.font = "500 12px Onest, system-ui, sans-serif";
-              ctx.fillStyle = BRASS;
+              ctx.font = `500 12px ${pal.label}`;
+              ctx.fillStyle = pal.brass;
               label(name, E.x, E.y + 4, E.x > cx, r + 7);
             }
             ctx.globalAlpha = 1;
@@ -487,7 +573,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
       vis.disconnect();
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [sectors, live, exits, pulsing, travelling, thesisName, compact]);
+  }, [sectors, live, exits, pulsing, travelling, thesisName, compact, themeTick]);
 
   useEffect(() => {
     zoomRef.current.target = zoomed;
@@ -570,7 +656,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
             aria-pressed={zoomed === s.id}
             onClick={() => setZoomed(zoomed === s.id ? null : s.id)}
           >
-            <span className="dot" style={{ background: sectorColor(sectors, s.id) }} aria-hidden />
+            <span className="dot" style={{ background: sectorVar(s.id) }} aria-hidden />
             {s.short || s.name}
           </button>
         ))}
@@ -598,7 +684,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
         >
           <p className="oc-name">{card.name}</p>
           <p className="oc-meta">
-            <span className="dot" style={{ background: card.status === "exited" ? "#85570A" : sectorColor(sectors, card.sector) }} />
+            <span className="dot" style={{ background: card.status === "exited" ? "var(--brass)" : sectorVar(card.sector) }} />
             {card.status === "exited" ? (card.exit?.state === "announced" ? "Being acquired" : "Exited") : cardSector?.name}
             {card.geo ? `, ${card.geo}` : ""}
           </p>

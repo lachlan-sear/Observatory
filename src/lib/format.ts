@@ -75,3 +75,35 @@ export function isRecent(dateYm: string | undefined, editionIso: string | undefi
   const ed = new Date(editionIso.slice(0, 10) + "T00:00:00Z");
   return (ed.getTime() - end.getTime()) / 86400000 <= days;
 }
+
+/* ---------- Themes ---------- */
+
+export const THEMES = [
+  { id: "paper", name: "Paper" },
+  { id: "deepspace", name: "Deep Space" },
+  { id: "discovery", name: "Discovery" },
+] as const;
+export type ThemeId = (typeof THEMES)[number]["id"];
+
+/** Sector colour as a CSS variable, so each theme can retune it. */
+export function sectorVar(id: string): string {
+  return `var(--sec-${id})`;
+}
+
+function mix(hex: string, toward: [number, number, number], t: number): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return "#" + rgb.map((v, i) => Math.round(v + (toward[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+
+/** Sector colours tuned per theme: lifted towards white on the night sky. */
+export function sectorPalette(base: string, theme: string): string {
+  return theme === "deepspace" ? mix(base, [245, 245, 247], 0.38) : base;
+}
+
+export function sectorStyles(sectors: { id: string; color?: string | null }[]): string {
+  const rows = (theme: string) =>
+    sectors.map((s) => `--sec-${s.id}:${sectorPalette(sectorColor(sectors, s.id), theme)};`).join("");
+  return `:root{${rows("paper")}}:root[data-theme="deepspace"]{${rows("deepspace")}}`;
+}

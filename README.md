@@ -32,6 +32,14 @@ on the page.
 To run it for your own fund, set `OBSERVATORY_DATA_URL` to your fork's file.
 Nothing in the code is specific to one thesis.
 
+## Looks
+
+Three themes, switched from the top bar or the footer and remembered per browser:
+**Paper** (the default), and **Deep Space** and **Discovery** from Lachie's TV
+design system (Jost titles, Inter, IBM Plex Mono readouts, a Gargantua sun,
+2049 haze). `?theme=deepspace` on any address sets it; `NEXT_PUBLIC_DEFAULT_THEME`
+changes the default for everyone.
+
 ## Embedding (the desks)
 
 `/embed` shows the orrery and the company list with no page chrome. It may be

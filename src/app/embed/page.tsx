@@ -1,6 +1,7 @@
 import Orrery from "@/components/Orrery";
 import CompanyTable from "@/components/CompanyTable";
 import { getObservatory } from "@/lib/data";
+import { sectorStyles } from "@/lib/format";
 import { longDate } from "@/lib/format";
 import HideFromQuery from "@/components/HideFromQuery";
 
@@ -16,6 +17,7 @@ export default async function Embed() {
   const { data } = await getObservatory();
   return (
     <main className="embed">
+      <style dangerouslySetInnerHTML={{ __html: sectorStyles(data.thesis.sectors) }} />
       <HideFromQuery />
       <div className="embed-head">
         <p className="embed-title">{data.thesis.name}</p>

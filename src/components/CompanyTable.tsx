@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Company, Sector } from "@/lib/types";
-import { domain, month, raisedLabel, sectorColor, shortDate, STATUS_LABEL } from "@/lib/format";
+import { domain, month, raisedLabel, sectorVar, shortDate, STATUS_LABEL } from "@/lib/format";
 
 type Key = "name" | "sector" | "stage" | "raised" | "last" | "geo" | "checked";
 const STAGE_ORDER = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Series D", "Series E", "Series F",
@@ -65,7 +65,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
           {[{ id: "all", short: "All" }, ...sectors, { id: "exited", short: "Exits" }].map((s) => (
             <button key={s.id} type="button" aria-pressed={sector === s.id} onClick={() => setSector(s.id)}>
               {s.id !== "all" && (
-                <span className="dot" style={{ background: s.id === "exited" ? "#85570A" : sectorColor(sectors, s.id) }} aria-hidden />
+                <span className="dot" style={{ background: s.id === "exited" ? "var(--brass)" : sectorVar(s.id) }} aria-hidden />
               )}
               {"short" in s ? s.short : ""}
             </button>
@@ -101,7 +101,7 @@ export default function CompanyTable({ companies, sectors, hidden = NONE }: { co
                 <tr key={c.id} className={isOpen ? "open" : ""}>
                   <td className="co">
                     <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : c.id)}>
-                      <span className="dot" style={{ background: c.status === "exited" ? "#85570A" : sectorColor(sectors, c.sector) }} aria-hidden />
+                      <span className="dot" style={{ background: c.status === "exited" ? "var(--brass)" : sectorVar(c.sector) }} aria-hidden />
                       <span className="co-name">{c.name}</span>
                     </button>
                     <span className="co-desc">{c.description}</span>

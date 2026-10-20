@@ -1,5 +1,5 @@
 import type { Company, ObservatoryData, Sector } from "@/lib/types";
-import { domain, longDate, month, raisedLabel, sectorColor, shortDate, usd } from "@/lib/format";
+import { domain, longDate, month, raisedLabel, sectorVar, shortDate, usd } from "@/lib/format";
 
 /* ---------- Money: one row per orbit, each company a dot on a log scale ---------- */
 
@@ -64,11 +64,11 @@ export function MoneyStrip({ companies, sectors }: { companies: Company[]; secto
                     return <line x1={cx} y1={cy + (dy < 0 ? -7 : 7)} x2={ex} y2={cy + dy + (dy < 0 ? 5 : -13)} className="leader" />;
                   })()}
                   {c.raisedBasis === "latest_round" ? (
-                    <circle cx={cx} cy={cy} r={5.5} fill="#EEF1F5" stroke={exited ? "#85570A" : sectorColor(sectors, s.id)} strokeWidth={2}>
+                    <circle cx={cx} cy={cy} r={5.5} style={{ fill: "var(--paper)", stroke: exited ? "var(--brass)" : sectorVar(s.id) }} strokeWidth={2}>
                       <title>{`${c.name}: ${raisedLabel(c)} (latest round only)`}</title>
                     </circle>
                   ) : (
-                    <circle cx={cx} cy={cy} r={exited ? 6.5 : 6} fill={exited ? "#85570A" : sectorColor(sectors, s.id)} stroke="#EEF1F5" strokeWidth={1.5}>
+                    <circle cx={cx} cy={cy} r={exited ? 6.5 : 6} style={{ fill: exited ? "var(--brass)" : sectorVar(s.id), stroke: "var(--paper)" }} strokeWidth={1.5}>
                       <title>{`${c.name}: ${raisedLabel(c)} raised${exited ? " (exit)" : ""}`}</title>
                     </circle>
                   )}
@@ -83,7 +83,7 @@ export function MoneyStrip({ companies, sectors }: { companies: Company[]; secto
       <ul className="money-list" aria-label="Capital raised by company">
         {sectors.map((s) => (
           <li key={s.id}>
-            <span className="ml-sector"><span className="dot" style={{ background: sectorColor(sectors, s.id) }} aria-hidden />{s.short}</span>
+            <span className="ml-sector"><span className="dot" style={{ background: sectorVar(s.id) }} aria-hidden />{s.short}</span>
             <span className="ml-items">
               {companies.filter((c) => c.sector === s.id && c.raisedUsdM)
                 .sort((a, b) => (b.raisedUsdM || 0) - (a.raisedUsdM || 0))
@@ -120,7 +120,7 @@ export function Where({ companies: all, sectors }: { companies: Company[]; secto
             <span className="bar-track" aria-hidden>
               {list.map((c) => (
                 <span key={c.name} className="bar-seg" title={c.name}
-                  style={{ width: `${100 / maxN}%`, background: c.status === "exited" ? "#85570A" : sectorColor(sectors, c.sector) }} />
+                  style={{ width: `${100 / maxN}%`, background: c.status === "exited" ? "var(--brass)" : sectorVar(c.sector) }} />
               ))}
             </span>
             <span className="bar-n">{list.length}</span>
@@ -145,7 +145,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
             <span className={`kind kind-${c.kind}`}>{c.kind === "exit" ? "Exit" : c.kind === "round" ? "Round" : c.kind === "shutdown" ? "Shut down" : "Update"}</span>
             <span className="ch-head">{c.headline}</span>
             <span className="ch-meta">
-              <span className="dot" style={{ background: c.kind === "exit" ? "#85570A" : sectorColor(data.thesis.sectors, c.sector) }} aria-hidden />
+              <span className="dot" style={{ background: c.kind === "exit" ? "var(--brass)" : sectorVar(c.sector) }} aria-hidden />
               {month(c.date)}
               {c.source && <> <a href={c.source} target="_blank" rel="noreferrer">{domain(c.source)}</a></>}
             </span>
@@ -171,7 +171,7 @@ export function Orbits({ companies, sectors }: { companies: Company[]; sectors: 
         const cap = list.reduce((a, c) => a + (c.raisedUsdM || 0), 0);
         return (
           <article key={s.id} className="orbit">
-            <h3><span className="dot" style={{ background: sectorColor(sectors, s.id) }} aria-hidden />{s.name}</h3>
+            <h3><span className="dot" style={{ background: sectorVar(s.id) }} aria-hidden />{s.name}</h3>
             <p>{s.description}</p>
             <p className="orbit-facts">
               {list.length} companies{cap > 0 && `, ${usd(cap)} raised`}
