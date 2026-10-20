@@ -409,3 +409,15 @@ body { transition: background-color 2s cubic-bezier(0.16, 1, 0.3, 1), color 2s c
   body { transition: none; }
   :is([data-theme="deepspace"], [data-theme="discovery"]) a.primary { transition: none; }
 }
+
+/* Phones: the look switch sits at the top of the page; touch targets at least 40px. */
+.theme-switch-mobile { display: none; margin: 0 0 20px; }
+@media (max-width: 820px) {
+  .theme-switch-mobile { display: block; }
+  .theme-switch button { padding: 10px 12px; font-size: 13px; }
+  .orrery-sectors button, .chips button { min-height: 40px; padding: 9px 14px; }
+  .topbar nav a { padding: 12px 0; }
+  thead th button { padding-top: 13px; padding-bottom: 13px; }
+  td.co > button { padding: 9px 0; }
+  .ch-meta a, .ex-meta a { display: inline-block; padding: 8px 0; }
+}

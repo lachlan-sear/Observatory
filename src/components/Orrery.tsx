@@ -543,7 +543,7 @@ export default function Orrery({ sectors, companies, changes, thesisName, editio
             ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.lineWidth = 1;
-            if (prog >= 1 && !focus) {
+            if (prog >= 1 && !focus && !narrow) {
               const name = c.exit?.acquirer ? `${c.name} → ${c.exit.acquirer}` : c.name;
               ctx.font = `500 12px ${pal.label}`;
               ctx.fillStyle = pal.brass;

@@ -53,6 +53,7 @@ export default async function Page() {
         <section className="hero">
           <div className="wrap hero-grid">
             <div className="hero-a">
+              <div className="theme-switch-mobile"><ThemeSwitch /></div>
               <p className="byline">A thesis map by {thesis.fund.replace(/^Reference instance \((.*)\)$/, "$1")}</p>
               <h1>{thesis.name}</h1>
               <p className="belief">{firstSentence}</p>
@@ -67,7 +68,7 @@ export default async function Page() {
                 <p className="stamp">
                   <span className={live ? "live" : "snap"} aria-hidden />
                   Edition {edition.number}, {longDate(edition.date)}.{" "}
-                  {edition.kind === "seed" ? "Checked by hand; weekly checks start once the scheduled run is switched on." : `Next check ${longDate(nextMonday(edition.date))}.`}
+                  {edition.kind === "seed" ? "Checked by hand; weekly checks start once the scheduled run is switched on." : edition.kind === "manual" ? `Checked by hand this week. Next check ${longDate(nextMonday(edition.date))}.` : `Next check ${longDate(nextMonday(edition.date))}.`}
                   {!live && " Showing the bundled snapshot; the live data couldn't be reached."}
                 </p>
               )}

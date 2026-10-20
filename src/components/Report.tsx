@@ -1,5 +1,5 @@
 import type { Company, ObservatoryData, Sector } from "@/lib/types";
-import { domain, longDate, month, raisedLabel, sectorVar, shortDate, usd } from "@/lib/format";
+import { domain, longDate, month, nextMonday, raisedLabel, sectorVar, shortDate, usd } from "@/lib/format";
 
 /* ---------- Money: one row per orbit, each company a dot on a log scale ---------- */
 
@@ -142,7 +142,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
       <ol className="changes">
         {data.changes.map((c) => (
           <li key={c.company + c.kind}>
-            <span className={`kind kind-${c.kind}`}>{c.kind === "exit" ? "Exit" : c.kind === "round" ? "Round" : c.kind === "shutdown" ? "Shut down" : "Update"}</span>
+            <span className={`kind kind-${c.kind}`}>{c.kind === "exit" ? "Exit" : c.kind === "round" ? "Round" : c.kind === "shutdown" ? "Shut down" : "Note"}</span>
             <span className="ch-head">{c.headline}</span>
             <span className="ch-meta">
               <span className="dot" style={{ background: c.kind === "exit" ? "var(--brass)" : sectorVar(c.sector) }} aria-hidden />
@@ -155,7 +155,9 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
       <p className="fine">
         {e.kind === "seed"
           ? `Checked by hand on ${longDate(e.date)}. Weekly checks take over once the scheduled run is switched on.`
-          : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} changes applied, ${e.held} held for a human because their source didn't say so.`}
+          : e.kind === "manual"
+            ? `All ${e.checked} companies checked by hand on ${longDate(e.date)}, each change matched to its source. The scheduled run takes over from ${longDate(nextMonday(e.date))}.`
+            : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} changes applied, ${e.held} held for a human because their source didn't say so.`}
       </p>
     </div>
   );
@@ -256,7 +258,7 @@ export function Editions({ data }: { data: ObservatoryData }) {
         <li key={e.number}>
           <span className="ed-no">Edition {e.number}</span>
           <span className="ed-date">{longDate(e.date)}</span>
-          <span className="ed-sum">{e.kind === "seed" ? "Re-oriented to the current thesis" : `${e.checked} checked, ${e.applied} applied, ${e.held} held`}</span>
+          <span className="ed-sum">{e.kind === "seed" ? "Re-oriented to the current thesis" : e.kind === "manual" ? `${e.checked} checked by hand, ${e.applied} changes` : `${e.checked} checked, ${e.applied} applied, ${e.held} held`}</span>
           {e.headlines.length > 0 && <span className="ed-heads">{e.headlines.join(". ")}.</span>}
         </li>
       ))}
