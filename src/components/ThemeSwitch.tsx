@@ -21,7 +21,7 @@ export default function ThemeSwitch() {
 
   const choose = (t: ThemeId) => {
     setTheme(t);
-    document.documentElement.dataset.theme = t;
+    document.documentElement.setAttribute("data-theme", t);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", META[t]);
     try {
       localStorage.setItem(KEY, t);
