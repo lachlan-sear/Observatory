@@ -157,7 +157,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
           ? `Checked by hand on ${longDate(e.date)}. Weekly checks take over once the scheduled run is switched on.`
           : e.kind === "manual"
             ? `All ${e.checked} companies checked on ${longDate(e.date)}, each change matched to its source.`
-            : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} changes applied, ${e.held} held for a human because their source didn't say so.`}
+            : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} ${e.applied === 1 ? "change" : "changes"} applied, ${e.held} held for a human because their source didn't say so.`}
       </p>
     </div>
   );
