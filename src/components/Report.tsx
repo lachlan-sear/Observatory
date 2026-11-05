@@ -156,7 +156,7 @@ export function ThisEdition({ data }: { data: ObservatoryData }) {
         {e.kind === "seed"
           ? `Checked by hand on ${longDate(e.date)}. Weekly checks take over once the scheduled run is switched on.`
           : e.kind === "manual"
-            ? `All ${e.checked} companies checked by hand on ${longDate(e.date)}, each change matched to its source. The scheduled run takes over from ${longDate(nextMonday(e.date))}.`
+            ? `All ${e.checked} companies checked on ${longDate(e.date)}, each change matched to its source.`
             : `${e.checked} companies checked on ${longDate(e.date)}; ${e.applied} changes applied, ${e.held} held for a human because their source didn't say so.`}
       </p>
     </div>
@@ -258,7 +258,7 @@ export function Editions({ data }: { data: ObservatoryData }) {
         <li key={e.number}>
           <span className="ed-no">Edition {e.number}</span>
           <span className="ed-date">{longDate(e.date)}</span>
-          <span className="ed-sum">{e.kind === "seed" ? "Re-oriented to the current thesis" : e.kind === "manual" ? `${e.checked} checked by hand, ${e.applied} changes` : `${e.checked} checked, ${e.applied} applied, ${e.held} held`}</span>
+          <span className="ed-sum">{e.kind === "seed" ? "Re-oriented to the current thesis" : e.kind === "manual" ? `${e.checked} checked, ${e.applied} changes` : `${e.checked} checked, ${e.applied} applied, ${e.held} held`}</span>
           {e.headlines.length > 0 && <span className="ed-heads">{e.headlines.join(". ")}.</span>}
         </li>
       ))}
