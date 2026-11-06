@@ -4,6 +4,7 @@ import { getObservatory } from "@/lib/data";
 import { sectorStyles } from "@/lib/format";
 import { longDate } from "@/lib/format";
 import HideFromQuery from "@/components/HideFromQuery";
+import EmbedHeight from "@/components/EmbedHeight";
 
 export const revalidate = 3600;
 export const metadata = { robots: { index: false, follow: false } };
@@ -19,6 +20,7 @@ export default async function Embed() {
     <main className="embed">
       <style dangerouslySetInnerHTML={{ __html: sectorStyles(data.thesis.sectors) }} />
       <HideFromQuery />
+      <EmbedHeight />
       <div className="embed-head">
         <p className="embed-title">{data.thesis.name}</p>
         {data.edition && <p className="fine">Edition {data.edition.number}, {longDate(data.edition.date)}.</p>}
