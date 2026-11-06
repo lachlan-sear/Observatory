@@ -24,7 +24,10 @@ export async function getObservatory(): Promise<{ data: ObservatoryData; live: b
   if (url.includes("api.github.com")) headers.Accept = "application/vnd.github.raw+json";
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const res = await fetch(url, { headers, next: { revalidate: REVALIDATE_SECONDS, tags: ["observatory"] } });
+    // A new deploy fetches afresh instead of reusing the last deploy's cached copy.
+    const deploy = process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA;
+    const src = deploy && !url.includes("api.github.com") ? `${url}${url.includes("?") ? "&" : "?"}d=${deploy}` : url;
+    const res = await fetch(src, { headers, next: { revalidate: REVALIDATE_SECONDS, tags: ["observatory"] } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as ObservatoryData;
     if (!Array.isArray(data.companies) || !data.thesis) throw new Error("unexpected shape");
